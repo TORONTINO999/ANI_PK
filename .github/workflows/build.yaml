@@ -47,6 +47,31 @@ jobs:
         python -m pip install --upgrade pip
         pip install buildozer
 
+    - name: Clean old Android SDK
+      run: rm -rf ~/.buildozer/android/platform/android-sdk || true
+
+    - name: Download and setup Android SDK with correct build-tools
+      run: |
+        export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
+        mkdir -p $ANDROID_HOME
+        cd $ANDROID_HOME
+        
+        # Скачиваем старую версию SDK Tools (совместимую с Buildozer)
+        wget -q https://dl.google.com/android/repository/sdk-tools-linux-4333796.zip
+        unzip -q sdk-tools-linux-4333796.zip
+        rm sdk-tools-linux-4333796.zip
+        
+        # Принимаем все лицензии
+        yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses || true
+        
+        # Устанавливаем нужные компоненты (только версию 33.0.2)
+        $ANDROID_HOME/tools/bin/sdkmanager "platform-tools" || true
+        $ANDROID_HOME/tools/bin/sdkmanager "platforms;android-33" || true
+        $ANDROID_HOME/tools/bin/sdkmanager "build-tools;33.0.2" || true
+        
+        # Проверяем, что build-tools установлены
+        ls -la $ANDROID_HOME/build-tools/ || true
+
     - name: Cache Buildozer
       uses: actions/cache@v3
       with:
@@ -57,10 +82,9 @@ jobs:
 
     - name: Build APK
       run: |
-        # Очищаем переменные, чтобы Buildozer использовал свои пути
-        unset ANDROID_HOME
-        unset ANDROID_SDK_ROOT
-        unset ANDROID_NDK_ROOT
+        # Явно указываем путь к SDK
+        export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
+        export PATH=$PATH:$ANDROID_HOME/tools/bin:$ANDROID_HOME/platform-tools
         buildozer android debug
 
     - name: Upload APK
