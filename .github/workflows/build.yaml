@@ -39,6 +39,14 @@ jobs:
     - name: Clean old NDK
       run: rm -rf ~/.buildozer/android/platform/android-ndk-* || true
 
+    - name: Accept Android SDK licenses
+      run: |
+        export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
+        mkdir -p $ANDROID_HOME
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+        yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses || true
+        yes | $ANDROID_HOME/tools/sdkmanager --licenses || true
+
     - name: Cache Buildozer
       uses: actions/cache@v3
       with:
