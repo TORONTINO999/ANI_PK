@@ -3,14 +3,12 @@ name: Build APK
 on:
   push:
     branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
 
     steps:
     - name: Checkout
@@ -21,56 +19,49 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Setup Java 8
+    - name: Setup Java 11
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
-        java-version: '8'
+        java-version: '11'
 
-    - name: Setup Node.js 24
-      uses: actions/setup-node@v4
-      with:
-        node-version: '24'
-
-    - name: Install system dependencies
+    - name: Install system dependencies (minimal)
       run: |
         sudo apt-get update -qq
         sudo apt-get install -y -qq \
           git zip unzip autoconf libtool pkg-config \
           zlib1g-dev libncurses5-dev libncursesw5-dev \
-          cmake libffi-dev libssl-dev \
-          automake libltdl-dev python3-dev
+          cmake libffi-dev libssl-dev python3-dev
         sudo apt-get install -y -qq libtinfo6 || true
 
     - name: Install Python packages
       run: |
-        python -m pip install --upgrade pip
-        pip install buildozer
+        python -m pip install --quiet --upgrade pip
+        pip install --quiet buildozer
 
-    - name: Clean old Android SDK
+    - name: Clean old SDK
       run: rm -rf ~/.buildozer/android/platform/android-sdk || true
 
-    - name: Download and setup Android SDK with correct build-tools
+    - name: Setup Android SDK (quick)
       run: |
         export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
         mkdir -p $ANDROID_HOME
         cd $ANDROID_HOME
         
-        # Скачиваем старую версию SDK Tools (совместимую с Buildozer)
-        wget -q https://dl.google.com/android/repository/sdk-tools-linux-4333796.zip
-        unzip -q sdk-tools-linux-4333796.zip
-        rm sdk-tools-linux-4333796.zip
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+        unzip -q commandlinetools-linux-11076708_latest.zip
+        rm commandlinetools-linux-11076708_latest.zip
         
-        # Принимаем все лицензии
-        yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses || true
+        mkdir -p cmdline-tools/latest
+        mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
         
-        # Устанавливаем нужные компоненты (только версию 33.0.2)
-        $ANDROID_HOME/tools/bin/sdkmanager "platform-tools" || true
-        $ANDROID_HOME/tools/bin/sdkmanager "platforms;android-33" || true
-        $ANDROID_HOME/tools/bin/sdkmanager "build-tools;33.0.2" || true
+        mkdir -p tools/bin
+        ln -sf $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager $ANDROID_HOME/tools/bin/sdkmanager || true
         
-        # Проверяем, что build-tools установлены
-        ls -la $ANDROID_HOME/build-tools/ || true
+        yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses > /dev/null 2>&1 || true
+        $ANDROID_HOME/tools/bin/sdkmanager "platform-tools" > /dev/null 2>&1 || true
+        $ANDROID_HOME/tools/bin/sdkmanager "platforms;android-33" > /dev/null 2>&1 || true
+        $ANDROID_HOME/tools/bin/sdkmanager "build-tools;33.0.2" > /dev/null 2>&1 || true
 
     - name: Cache Buildozer
       uses: actions/cache@v3
@@ -80,12 +71,11 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-buildozer-
 
-    - name: Build APK
+    - name: Build APK (optimized)
       run: |
-        # Явно указываем путь к SDK
         export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
         export PATH=$PATH:$ANDROID_HOME/tools/bin:$ANDROID_HOME/platform-tools
-        buildozer android debug
+        buildozer android debug -- --jobs=4
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
@@ -93,11 +83,3 @@ jobs:
         name: anime-parser-apk
         path: bin/*.apk
         retention-days: 30
-
-    - name: Create Release (on tag)
-      if: startsWith(github.ref, 'refs/tags/')
-      uses: softprops/action-gh-release@v1
-      with:
-        files: bin/*.apk
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
