@@ -36,6 +36,9 @@ jobs:
         python -m pip install --upgrade pip
         pip install buildozer cython virtualenv
 
+    - name: Clean old NDK
+      run: rm -rf ~/.buildozer/android/platform/android-ndk-* || true
+
     - name: Cache Buildozer
       uses: actions/cache@v3
       with:
