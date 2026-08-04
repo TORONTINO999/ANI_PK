@@ -26,6 +26,7 @@ android.sdk = 33
 android.ndk = 25c
 android.arch = arm64-v8a,armeabi-v7a
 android.allow_backup = True
+android.build_tools = 33.0.2
 
 # ===== Графика =====
 # android.presplash = presplash.png
