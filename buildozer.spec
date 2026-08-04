@@ -20,7 +20,6 @@ android.ndk = 25c
 android.archs = armeabi-v7a, arm64-v8a, x86, x86_64
 android.allow_backup = True
 android.build_tools = 33.0.2
-android.gradle_dependencies = 'com.android.support:localbroadcastmanager:28.0.0'
 
 [buildozer]
 log_level = 2
