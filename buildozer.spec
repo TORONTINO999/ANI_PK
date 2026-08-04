@@ -17,9 +17,10 @@ android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE,ACCE
 android.api = 33
 android.minapi = 21
 android.ndk = 25c
-android.archs = arm64-v8a, armeabi-v7a
+android.archs = armeabi-v7a, arm64-v8a, x86, x86_64
 android.allow_backup = True
 android.build_tools = 33.0.2
+android.gradle_dependencies = 'com.android.support:localbroadcastmanager:28.0.0'
 
 [buildozer]
 log_level = 2
