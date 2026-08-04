@@ -20,7 +20,6 @@ android.ndk = 25c
 android.archs = arm64-v8a, armeabi-v7a
 android.allow_backup = True
 android.build_tools = 33.0.2
-android.sdk = 33
 
 [buildozer]
 log_level = 2
