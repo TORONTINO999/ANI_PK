@@ -17,8 +17,9 @@ android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE,ACCE
 android.api = 33
 android.minapi = 21
 android.ndk = 25c
-android.arch = arm64-v8a,armeabi-v7a
+android.archs = arm64-v8a, armeabi-v7a
 android.allow_backup = True
+android.build_tools = 33.0.2
 
 [buildozer]
 log_level = 2
