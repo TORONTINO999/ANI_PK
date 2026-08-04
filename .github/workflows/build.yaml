@@ -36,38 +36,16 @@ jobs:
         python -m pip install --upgrade pip
         pip install buildozer cython virtualenv
 
-    - name: Cache Android SDK
+    - name: Cache Buildozer
       uses: actions/cache@v3
       with:
-        path: |
-          ~/.buildozer
-          ~/android-sdk
-        key: ${{ runner.os }}-android-sdk-${{ hashFiles('buildozer.spec') }}
+        path: ~/.buildozer
+        key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
         restore-keys: |
-          ${{ runner.os }}-android-sdk-
-
-    - name: Download Android SDK
-      run: |
-        export ANDROID_HOME=$HOME/android-sdk
-        mkdir -p $ANDROID_HOME
-        cd $ANDROID_HOME
-        
-        if [ ! -d "cmdline-tools" ]; then
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-          unzip -q commandlinetools-linux-11076708_latest.zip
-          mkdir -p cmdline-tools/latest
-          mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
-        fi
-        
-        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
-        yes | sdkmanager --licenses || true
-        sdkmanager "platform-tools" "platforms;android-33" "ndk;25.2.9519653" "build-tools;33.0.2"
+          ${{ runner.os }}-buildozer-
 
     - name: Build APK
-      run: |
-        export ANDROID_HOME=$HOME/android-sdk
-        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
-        buildozer android debug
+      run: buildozer android debug
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
