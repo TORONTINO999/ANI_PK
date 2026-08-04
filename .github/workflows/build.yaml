@@ -34,18 +34,7 @@ jobs:
     - name: Install Python packages
       run: |
         python -m pip install --upgrade pip
-        pip install buildozer cython virtualenv
-
-    - name: Clean old NDK
-      run: rm -rf ~/.buildozer/android/platform/android-ndk-* || true
-
-    - name: Accept Android SDK licenses
-      run: |
-        export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
-        mkdir -p $ANDROID_HOME
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-        yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses || true
-        yes | $ANDROID_HOME/tools/sdkmanager --licenses || true
+        pip install buildozer
 
     - name: Cache Buildozer
       uses: actions/cache@v3
