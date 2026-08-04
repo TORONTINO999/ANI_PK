@@ -23,7 +23,7 @@ android.named_permissions = android.permission.MANAGE_EXTERNAL_STORAGE
 android.api = 33
 android.minapi = 21
 android.sdk = 33
-android.ndk = 28c                    # <-- исправлено
+android.ndk = 25c
 android.arch = arm64-v8a,armeabi-v7a
 android.allow_backup = True
 
