@@ -19,6 +19,7 @@ android.minapi = 21
 android.ndk = 25c
 android.archs = arm64-v8a, armeabi-v7a
 android.allow_backup = True
+android.build_tools = 33.0.2
 
 [buildozer]
 log_level = 2
