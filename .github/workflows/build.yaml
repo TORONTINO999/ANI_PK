@@ -44,6 +44,28 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-buildozer-
 
+    - name: Setup Android SDK and install build-tools
+      run: |
+        export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
+        
+        # Проверяем, существует ли sdkmanager
+        if [ -f "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+        elif [ -f "$ANDROID_HOME/tools/bin/sdkmanager" ]; then
+          SDKMANAGER="$ANDROID_HOME/tools/bin/sdkmanager"
+        else
+          echo "sdkmanager not found, will let Buildozer handle it"
+          exit 0
+        fi
+        
+        # Принимаем лицензии
+        yes | $SDKMANAGER --licenses || true
+        
+        # Устанавливаем build-tools
+        $SDKMANAGER "build-tools;33.0.2" || true
+        $SDKMANAGER "platform-tools" || true
+        $SDKMANAGER "platforms;android-33" || true
+
     - name: Build APK
       run: buildozer android debug
 
