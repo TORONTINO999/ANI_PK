@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 90  # Увеличено до 90 минут для полной сборки
+    timeout-minutes: 90
 
     steps:
     - name: Checkout code
@@ -37,8 +37,7 @@ jobs:
           git zip unzip autoconf libtool pkg-config \
           zlib1g-dev libncurses5-dev libncursesw5-dev \
           cmake libffi-dev libssl-dev \
-          automake libltdl-dev python3-dev \
-          ccache  # Добавлен ccache для ускорения сборки
+          automake libltdl-dev python3-dev
         sudo apt-get install -y -qq libtinfo6 || true
 
     - name: Install Python packages
@@ -65,7 +64,13 @@ jobs:
         mkdir -p tools/bin
         ln -sf $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager $ANDROID_HOME/tools/bin/sdkmanager || true
         
-        yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses || true
+        # ИСПРАВЛЕННАЯ КОМАНДА ДЛЯ ПРИНЯТИЯ ЛИЦЕНЗИЙ
+        # Более надёжный способ, который работает всегда
+        echo y | $ANDROID_HOME/tools/bin/sdkmanager --licenses > /dev/null 2>&1 || true
+        
+        # Альтернативный метод, если первый не сработает
+        yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses --verbose || true
+        
         $ANDROID_HOME/tools/bin/sdkmanager "platform-tools" || true
         $ANDROID_HOME/tools/bin/sdkmanager "platforms;android-33" || true
         $ANDROID_HOME/tools/bin/sdkmanager "build-tools;33.0.2" || true
@@ -79,10 +84,6 @@ jobs:
           ${{ runner.os }}-buildozer-
 
     - name: Build APK
-      env:
-        # Увеличиваем лимит памяти для компилятора
-        GRADLE_OPTS: "-Xmx2048m -Dorg.gradle.daemon=false"
-        JAVA_OPTS: "-Xmx2048m"
       run: |
         export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
         export PATH=$PATH:$ANDROID_HOME/tools/bin:$ANDROID_HOME/platform-tools
