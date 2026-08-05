@@ -50,22 +50,28 @@ jobs:
         pip install buildozer
 
     # =====================================================
-    # 1️⃣ УВЕЛИЧИВАЕМ ЛИМИТЫ GIT
+    # 1️⃣ ПРЕДВАРИТЕЛЬНАЯ ЗАГРУЗКА — ПРАВИЛЬНАЯ ВЕРСИЯ
     # =====================================================
-    - name: ⚙️ Configure Git for large repos
-      run: |
-        git config --global http.postBuffer 524288000
-        git config --global http.lowSpeedLimit 0
-        git config --global http.lowSpeedTime 999999
-
-    # =====================================================
-    # 2️⃣ ПРЕДВАРИТЕЛЬНАЯ ЗАГРУЗКА ВСЕХ АРХИВОВ
-    # =====================================================
-    - name: 📦 Pre-download all recipe archives
+    - name: 📦 Pre-download recipes with correct Python version
       run: |
         BASE_DIR="$HOME/.buildozer/android/platform/build-arm64-v8a/packages"
         mkdir -p "$BASE_DIR"
         cd "$BASE_DIR"
+        
+        # ✅ ФИКС: версия Python 3.11.12 для hostpython3
+        PYTHON_VERSION="3.11.12"
+        
+        # hostpython3 — ВЕРСИЯ 3.11.12
+        mkdir -p hostpython3 && cd hostpython3
+        wget -q --timeout=60 https://github.com/python/cpython/archive/refs/tags/v${PYTHON_VERSION}.tar.gz -O v${PYTHON_VERSION}.tar.gz
+        tar -xzf v${PYTHON_VERSION}.tar.gz
+        cd ..
+        
+        # python3 — та же версия 3.11.12
+        mkdir -p python3 && cd python3
+        cp ../hostpython3/v${PYTHON_VERSION}.tar.gz .
+        tar -xzf v${PYTHON_VERSION}.tar.gz
+        cd ..
         
         # freetype
         mkdir -p freetype && cd freetype
@@ -73,91 +79,84 @@ jobs:
         tar -xzf freetype-2.14.1.tar.gz
         cd ..
         
-        # hostpython3 & python3
-        mkdir -p hostpython3 python3
-        wget -q --timeout=60 https://github.com/python/cpython/archive/refs/tags/v3.11.12.tar.gz -O python3.tar.gz
-        cp python3.tar.gz hostpython3/v3.11.12.tar.gz
-        cp python3.tar.gz python3/v3.11.12.tar.gz
-        cd hostpython3 && tar -xzf v3.11.12.tar.gz && cd ..
-        cd python3 && tar -xzf v3.11.12.tar.gz && cd ..
-        
         # jpeg
         mkdir -p jpeg && cd jpeg
-        wget -q --timeout=60 https://github.com/libjpeg-turbo/libjpeg-turbo/archive/2.0.1.tar.gz
+        wget -q --timeout=60 https://github.com/libjpeg-turbo/libjpeg-turbo/archive/2.0.1.tar.gz -O 2.0.1.tar.gz
         tar -xzf 2.0.1.tar.gz
         cd ..
         
         # libffi
         mkdir -p libffi && cd libffi
-        wget -q --timeout=60 https://github.com/libffi/libffi/archive/v3.4.2.tar.gz
+        wget -q --timeout=60 https://github.com/libffi/libffi/archive/v3.4.2.tar.gz -O v3.4.2.tar.gz
         tar -xzf v3.4.2.tar.gz
         cd ..
         
         # openssl
         mkdir -p openssl && cd openssl
-        wget -q --timeout=60 https://www.openssl.org/source/openssl-3.3.1.tar.gz
+        wget -q --timeout=60 https://www.openssl.org/source/openssl-3.3.1.tar.gz -O openssl-3.3.1.tar.gz
         tar -xzf openssl-3.3.1.tar.gz
         cd ..
         
         # png
         mkdir -p png && cd png
-        wget -q --timeout=60 https://github.com/glennrp/libpng/archive/v1.6.37.zip
+        wget -q --timeout=60 https://github.com/glennrp/libpng/archive/v1.6.37.zip -O v1.6.37.zip
         unzip -q v1.6.37.zip
         cd ..
         
         # sdl2_image
         mkdir -p sdl2_image && cd sdl2_image
-        wget -q --timeout=60 https://github.com/libsdl-org/SDL_image/releases/download/release-2.8.2/SDL2_image-2.8.2.tar.gz
+        wget -q --timeout=60 https://github.com/libsdl-org/SDL_image/releases/download/release-2.8.2/SDL2_image-2.8.2.tar.gz -O SDL2_image-2.8.2.tar.gz
         tar -xzf SDL2_image-2.8.2.tar.gz
         cd ..
         
         # sdl2_mixer
         mkdir -p sdl2_mixer && cd sdl2_mixer
-        wget -q --timeout=60 https://github.com/libsdl-org/SDL_mixer/releases/download/release-2.6.3/SDL2_mixer-2.6.3.tar.gz
+        wget -q --timeout=60 https://github.com/libsdl-org/SDL_mixer/releases/download/release-2.6.3/SDL2_mixer-2.6.3.tar.gz -O SDL2_mixer-2.6.3.tar.gz
         tar -xzf SDL2_mixer-2.6.3.tar.gz
         cd ..
         
         # sdl2_ttf
         mkdir -p sdl2_ttf && cd sdl2_ttf
-        wget -q --timeout=60 https://github.com/libsdl-org/SDL_ttf/releases/download/release-2.22.0/SDL2_ttf-2.22.0.tar.gz
+        wget -q --timeout=60 https://github.com/libsdl-org/SDL_ttf/releases/download/release-2.22.0/SDL2_ttf-2.22.0.tar.gz -O SDL2_ttf-2.22.0.tar.gz
         tar -xzf SDL2_ttf-2.22.0.tar.gz
         cd ..
         
         # sqlite3
         mkdir -p sqlite3 && cd sqlite3
-        wget -q --timeout=60 https://github.com/sqlite/sqlite/archive/refs/tags/version-3.50.4.tar.gz
+        wget -q --timeout=60 https://github.com/sqlite/sqlite/archive/refs/tags/version-3.50.4.tar.gz -O version-3.50.4.tar.gz
         tar -xzf version-3.50.4.tar.gz
         cd ..
         
         # sdl2
         mkdir -p sdl2 && cd sdl2
-        wget -q --timeout=60 https://github.com/libsdl-org/SDL/releases/download/release-2.30.11/SDL2-2.30.11.tar.gz
+        wget -q --timeout=60 https://github.com/libsdl-org/SDL/releases/download/release-2.30.11/SDL2-2.30.11.tar.gz -O SDL2-2.30.11.tar.gz
         tar -xzf SDL2-2.30.11.tar.gz
         cd ..
         
         # pillow
         mkdir -p Pillow && cd Pillow
-        wget -q --timeout=60 https://github.com/python-pillow/Pillow/archive/11.3.0.tar.gz
+        wget -q --timeout=60 https://github.com/python-pillow/Pillow/archive/11.3.0.tar.gz -O 11.3.0.tar.gz
         tar -xzf 11.3.0.tar.gz
         cd ..
         
         # pyjnius
         mkdir -p pyjnius && cd pyjnius
-        wget -q --timeout=60 https://github.com/kivy/pyjnius/archive/1.7.0.zip
+        wget -q --timeout=60 https://github.com/kivy/pyjnius/archive/1.7.0.zip -O 1.7.0.zip
         unzip -q 1.7.0.zip
         cd ..
         
         # kivy
         mkdir -p kivy && cd kivy
-        wget -q --timeout=60 https://github.com/kivy/kivy/archive/2.2.1.zip
+        wget -q --timeout=60 https://github.com/kivy/kivy/archive/2.2.1.zip -O 2.2.1.zip
         unzip -q 2.2.1.zip
         cd ..
         
-        echo "✅ All archives pre-downloaded and extracted"
-        du -sh "$BASE_DIR"
+        echo "✅ All archives pre-downloaded with Python ${PYTHON_VERSION}"
+        echo "✅ hostpython3 and python3 both version ${PYTHON_VERSION}"
+        ls -la "$BASE_DIR"
 
     # =====================================================
-    # 3️⃣ НАСТРОЙКА SDK
+    # 2️⃣ НАСТРОЙКА SDK (ИСПОЛЬЗУЕТ КЭШ)
     # =====================================================
     - name: 🚀 Setup Android SDK
       uses: amyu/setup-android@v5
@@ -209,32 +208,6 @@ jobs:
         export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-    # =====================================================
-    # 4️⃣ ИСПОЛЬЗУЕМ PATCH ДЛЯ SDL2_IMAGE — ОТКЛЮЧАЕМ LIBJXL
-    # =====================================================
-    - name: 📝 Patch sdl2_image to disable libjxl
-      run: |
-        SDL2_IMAGE_DIR="$HOME/.buildozer/android/platform/build-arm64-v8a/build/bootstrap_builds/sdl2/jni/SDL2_image"
-        
-        if [[ -d "$SDL2_IMAGE_DIR" ]]; then
-          echo "📝 Patching SDL2_image Android.mk to disable libjxl..."
-          
-          # Отключаем libjxl в Android.mk
-          sed -i 's/^\(LOCAL_CFLAGS += -DSDL_IMAGE_USE_LIBJXL\)/# \1/' "$SDL2_IMAGE_DIR/Android.mk" 2>/dev/null || true
-          sed -i 's/^\(LOCAL_SHARED_LIBRARIES += libjxl\)/# \1/' "$SDL2_IMAGE_DIR/Android.mk" 2>/dev/null || true
-          
-          # Или используем более агрессивный подход
-          if [[ -f "$SDL2_IMAGE_DIR/Android.mk" ]]; then
-            echo "✅ Android.mk found and patched"
-            grep -i "jxl" "$SDL2_IMAGE_DIR/Android.mk" || echo "  no jxl references found"
-          fi
-        else
-          echo "⚠️ SDL2_image directory not found yet, patch will be applied later"
-        fi
-
-    # =====================================================
-    # 5️⃣ СБОРКА APK
-    # =====================================================
     - name: 🔨 Build APK
       run: |
         export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
@@ -245,12 +218,10 @@ jobs:
         echo "========================================="
         echo "🔨 STARTING BUILD"
         echo "========================================="
-        echo "ANDROID_HOME: $ANDROID_HOME"
-        echo "========================================="
         
         echo "🚀 Running buildozer..."
         buildozer android debug 2>&1 | tee build.log || {
-          echo "❌ Build failed! Dumping last 200 lines of logs..."
+          echo "❌ Build failed! Last 200 lines:"
           tail -n 200 build.log
           exit 1
         }
