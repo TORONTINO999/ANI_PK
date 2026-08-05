@@ -25,11 +25,6 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '24'
-
     - name: Install system dependencies
       run: |
         sudo apt-get update -qq
@@ -46,11 +41,9 @@ jobs:
         pip install buildozer
 
     # =====================================================
-    # 1️⃣ ПЫТАЕМСЯ ЧЕРЕЗ amyu/setup-android (САМЫЙ НАДЕЖНЫЙ)
+    # 1️⃣ УСТАНАВЛИВАЕМ SDK ЧЕРЕЗ amyu/setup-android
     # =====================================================
-    - name: 🚀 Try amyu/setup-android
-      id: setup_android_primary
-      continue-on-error: true  # Если упадет - продолжаем
+    - name: 🚀 Setup Android SDK
       uses: amyu/setup-android@v5
       with:
         sdk-version: 33
@@ -58,224 +51,129 @@ jobs:
         ndk-version: 25.2.9519653
 
     # =====================================================
-    # 2️⃣ ЕСЛИ НЕ СРАБОТАЛО - ЗАПУСКАЕМ УНИВЕРСАЛЬНЫЙ ФИКСЕР
+    # 2️⃣ НАСТРАИВАЕМ ПЕРЕМЕННЫЕ И КОПИРУЕМ SDK
     # =====================================================
-    - name: 🔧 UNIVERSAL SDK FIXER (FALLBACK)
-      id: android_setup
-      if: steps.setup_android_primary.outcome == 'failure' || steps.setup_android_primary.outcome == 'skipped'
+    - name: 🔧 Configure SDK for Buildozer
+      run: |
+        export AMYU_SDK=$HOME/.android/sdk
+        export BUILD_OZER_SDK=$HOME/.buildozer/android/platform/android-sdk
+        
+        echo "🔄 Copying SDK from amyu to Buildozer location..."
+        
+        # Удаляем старый SDK Buildozer
+        rm -rf $BUILD_OZER_SDK 2>/dev/null || true
+        
+        # Копируем SDK (не симлинк, чтобы Buildozer не перезаписал)
+        cp -r $AMYU_SDK $BUILD_OZER_SDK
+        
+        # Проверяем результат
+        echo "✅ SDK copied to: $BUILD_OZER_SDK"
+        ls -la $BUILD_OZER_SDK
+        
+        # Проверяем platform-tools
+        if [[ -d "$BUILD_OZER_SDK/platform-tools" ]]; then
+          echo "✅ platform-tools found!"
+        else
+          echo "❌ platform-tools not found! Creating symlink..."
+          ln -sf $AMYU_SDK/platform-tools $BUILD_OZER_SDK/platform-tools
+        fi
+        
+        # Создаем файл с принятыми лицензиями для Buildozer
+        mkdir -p ~/.android
+        touch ~/.android/repositories.cfg
+        
+        echo "ANDROID_HOME=$BUILD_OZER_SDK" >> $GITHUB_ENV
+        echo "ANDROID_SDK_ROOT=$BUILD_OZER_SDK" >> $GITHUB_ENV
+
+    # =====================================================
+    # 3️⃣ ДИАГНОСТИКА
+    # =====================================================
+    - name: 🔍 SDK Diagnostics
       run: |
         export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
-        export SDKMANAGER_CMD=""
         
-        # Функция для поиска sdkmanager
-        find_sdkmanager() {
-          local possible_paths=(
-            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-            "$ANDROID_HOME/cmdline-tools/bin/sdkmanager"
-            "$ANDROID_HOME/tools/bin/sdkmanager"
-            "$ANDROID_HOME/tools/sdkmanager"
-          )
-          
-          for path in "${possible_paths[@]}"; do
-            if [[ -f "$path" ]]; then
-              echo "$path"
-              return 0
-            fi
-          done
-          return 1
-        }
-
-        echo "🔄 Primary SDK setup failed! Starting UNIVERSAL FIXER..."
-        echo "🔍 Cleaning old SDK..."
-        rm -rf ~/.buildozer/android/platform/android-sdk || true
-
-        echo "📦 Setting up Android SDK..."
-        mkdir -p $ANDROID_HOME
-        cd $ANDROID_HOME
-
-        # ПРОБУЕМ РАЗНЫЕ ВЕРСИИ SDK TOOLS
-        SDK_VERSIONS=(
-          "commandlinetools-linux_latest.zip"
-          "commandlinetools-linux-9477386_latest.zip"
-          "commandlinetools-linux-6609375_latest.zip"
-        )
-
-        for version in "${SDK_VERSIONS[@]}"; do
-          echo "🔄 Trying $version..."
-          
-          # Очищаем предыдущую попытку
-          rm -rf $ANDROID_HOME/cmdline-tools $ANDROID_HOME/tools 2>/dev/null || true
-          
-          # Скачиваем
-          wget -q https://dl.google.com/android/repository/$version
-          if [[ $? -ne 0 ]]; then
-            echo "⚠️ Failed to download $version"
-            continue
-          fi
-          
-          unzip -q $version
-          rm $version
-
-          # Создаем правильную структуру
-          if [[ -d "cmdline-tools" ]]; then
-            mkdir -p cmdline-tools/latest
-            mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
-            export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
-          elif [[ -d "tools" ]]; then
-            export PATH=$ANDROID_HOME/tools/bin:$PATH
-          fi
-
-          # Ищем sdkmanager
-          SDKMANAGER_CMD=$(find_sdkmanager)
-          if [[ -z "$SDKMANAGER_CMD" ]]; then
-            echo "❌ sdkmanager not found for $version"
-            continue
-          fi
-
-          echo "✅ Found sdkmanager at: $SDKMANAGER_CMD"
-          
-          # Пробуем принять лицензии
-          echo "📝 Accepting licenses..."
-          mkdir -p ~/.android
-          touch ~/.android/repositories.cfg
-          
-          # Пробуем с флагом --sdk_root
-          yes | $SDKMANAGER_CMD --sdk_root=$ANDROID_HOME --licenses > /dev/null 2>&1
-          
-          # Пробуем без флага
-          yes | $SDKMANAGER_CMD --licenses > /dev/null 2>&1
-          
-          # Устанавливаем компоненты
-          echo "📦 Installing components..."
-          COMPONENTS=("platform-tools" "platforms;android-33" "build-tools;33.0.2")
-          ALL_INSTALLED=true
-          
-          for component in "${COMPONENTS[@]}"; do
-            echo "  Installing $component..."
-            
-            # Пробуем с --sdk_root
-            $SDKMANAGER_CMD --sdk_root=$ANDROID_HOME "$component" || {
-              # Если не получилось, пробуем без
-              $SDKMANAGER_CMD "$component" || {
-                echo "⚠️ Failed to install $component"
-                ALL_INSTALLED=false
-              }
-            }
-          done
-          
-          if [[ "$ALL_INSTALLED" == "true" ]]; then
-            echo "✅ SDK setup successful with $version!"
-            echo "sdkmanager_path=$SDKMANAGER_CMD" >> $GITHUB_OUTPUT
-            echo "android_home=$ANDROID_HOME" >> $GITHUB_OUTPUT
-            echo "setup_success=true" >> $GITHUB_OUTPUT
-            break
+        echo "========================================="
+        echo "📱 SDK DIAGNOSTICS"
+        echo "========================================="
+        echo "ANDROID_HOME: $ANDROID_HOME"
+        echo ""
+        
+        echo "📂 SDK Structure:"
+        ls -la $ANDROID_HOME | head -20
+        echo ""
+        
+        echo "📦 Checking components:"
+        for comp in "platform-tools" "build-tools/33.0.2" "platforms/android-33"; do
+          if [[ -d "$ANDROID_HOME/$comp" ]]; then
+            echo "  ✅ $comp"
           else
-            echo "❌ Setup failed with $version, trying next..."
+            echo "  ❌ $comp NOT found"
           fi
         done
+        echo ""
+        
+        echo "🔍 sdkmanager location:"
+        find $ANDROID_HOME -name "sdkmanager" 2>/dev/null | head -3
+        echo "========================================="
 
-        # ФИНАЛЬНАЯ ПРОВЕРКА: если ничего не сработало, создаем минимальный SDK вручную
-        if [[ -z "$(find_sdkmanager)" ]]; then
-          echo "⚠️ ALL SDK SETUP ATTEMPTS FAILED! Using fallback method..."
-          
-          # Скачиваем предварительно собранный SDK
-          wget -q https://github.com/kivy/buildozer/raw/master/.github/workflows/android-sdk.tar.gz
-          tar -xzf android-sdk.tar.gz
-          rm android-sdk.tar.gz
-          
-          # Ищем заново
-          SDKMANAGER_CMD=$(find_sdkmanager)
-          if [[ -n "$SDKMANAGER_CMD" ]]; then
-            echo "✅ Fallback SDK found!"
-            echo "sdkmanager_path=$SDKMANAGER_CMD" >> $GITHUB_OUTPUT
-            echo "android_home=$ANDROID_HOME" >> $GITHUB_OUTPUT
-            echo "setup_success=true" >> $GITHUB_OUTPUT
-          fi
-        fi
-
-        # ВЫВОД ИНФОРМАЦИИ ДЛЯ ДИАГНОСТИКИ
-        echo "🔍 Diagnostic info:"
-        echo "ANDROID_HOME: $ANDROID_HOME"
-        echo "SDKMANAGER: $SDKMANAGER_CMD"
-        ls -la $ANDROID_HOME || echo "Cannot list SDK directory"
-        ls -la $ANDROID_HOME/cmdline-tools/ 2>/dev/null || echo "No cmdline-tools"
-        ls -la $ANDROID_HOME/tools/ 2>/dev/null || echo "No tools"
-        echo "Path: $PATH"
+    - name: Cache Buildozer
+      uses: actions/cache@v4
+      with:
+        path: ~/.buildozer
+        key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
+        restore-keys: |
+          ${{ runner.os }}-buildozer-
 
     # =====================================================
-    # 3️⃣ СБОРКА APK (с самодиагностикой)
+    # 4️⃣ СБОРКА APK
     # =====================================================
-    - name: 🔨 Build APK with Auto-Retry
-      id: build_apk
+    - name: 🔨 Build APK
       run: |
         export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
+        export PATH=$ANDROID_HOME/platform-tools:$PATH
         
-        # Автоматически находим правильный путь
+        # Добавляем sdkmanager в PATH
         if [[ -d "$ANDROID_HOME/cmdline-tools/latest/bin" ]]; then
           export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
         elif [[ -d "$ANDROID_HOME/tools/bin" ]]; then
           export PATH=$ANDROID_HOME/tools/bin:$PATH
         fi
-        export PATH=$ANDROID_HOME/platform-tools:$PATH
         
-        echo "🔍 Checking SDK setup..."
+        echo "========================================="
+        echo "🔨 STARTING BUILD"
+        echo "========================================="
+        echo "ANDROID_HOME: $ANDROID_HOME"
+        echo "PATH: $PATH"
+        echo "========================================="
         
         # Проверяем sdkmanager
         if command -v sdkmanager &> /dev/null; then
-          echo "✅ sdkmanager found: $(which sdkmanager)"
+          echo "✅ sdkmanager: $(which sdkmanager)"
+          sdkmanager --version || echo "⚠️ Could not get version"
         else
-          echo "⚠️ sdkmanager not found! Trying to locate..."
-          find $ANDROID_HOME -name "sdkmanager" 2>/dev/null || echo "❌ sdkmanager not found anywhere!"
+          echo "❌ sdkmanager NOT in PATH!"
+          exit 1
         fi
         
         # Проверяем platform-tools
         if [[ -d "$ANDROID_HOME/platform-tools" ]]; then
-          echo "✅ platform-tools installed"
+          echo "✅ platform-tools found"
         else
-          echo "⚠️ platform-tools not found!"
+          echo "❌ platform-tools NOT found!"
+          exit 1
         fi
         
-        echo "🚀 Starting build (first attempt)..."
-        buildozer android debug || {
-          echo "⚠️ First build attempt failed! Retrying with clean..."
-          buildozer android clean
-          buildozer android debug || {
-            echo "❌ Second attempt failed! Trying with updated dependencies..."
-            buildozer android update
-            buildozer android debug || {
-              echo "❌ Build failed after all attempts!"
-              exit 1
-            }
-          }
-        }
+        echo "🚀 Running buildozer..."
+        buildozer android debug
+        
+        echo "========================================="
+        echo "✅ BUILD COMPLETED"
+        echo "========================================="
+        ls -la bin/ || echo "❌ No APK found!"
 
-    # =====================================================
-    # 4️⃣ ВЫГРУЗКА РЕЗУЛЬТАТА
-    # =====================================================
     - name: 📤 Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: anime-parser-apk
         path: bin/*.apk
         retention-days: 30
-
-    # =====================================================
-    # 5️⃣ УВЕДОМЛЕНИЕ ОБ УСПЕХЕ/ОШИБКЕ
-    # =====================================================
-    - name: 📧 Notify success
-      if: success()
-      run: |
-        echo "✅ Build completed successfully!"
-        echo "📦 APK uploaded to artifacts"
-        echo "🔗 Download: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
-    - name: 📧 Notify failure with recovery hints
-      if: failure()
-      run: |
-        echo "❌ Build failed!"
-        echo "🔧 Recovery steps:"
-        echo "1. Try running workflow manually with different settings"
-        echo "2. Check buildozer.spec for errors"
-        echo "3. Ensure all dependencies are listed in requirements"
-        echo "4. Try building locally: buildozer android debug"
-        echo "🔗 Logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
