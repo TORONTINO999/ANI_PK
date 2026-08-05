@@ -48,15 +48,16 @@ jobs:
     # =====================================================
     # 1️⃣ ПРЕДВАРИТЕЛЬНАЯ ЗАГРУЗКА freetype
     # =====================================================
-    - name: 📦 Pre-download freetype from GitHub mirror
+    - name: 📦 Manual download freetype from official source
       run: |
         mkdir -p ~/.buildozer/android/platform/build-arm64-v8a/packages/freetype
         cd ~/.buildozer/android/platform/build-arm64-v8a/packages/freetype
         
-        echo "📥 Downloading freetype from GitHub mirror..."
-        wget -q https://github.com/akheron/jansson/raw/master/CMake/FindFreetype.cmake -O freetype-2.14.1.tar.gz || \
-        wget -q https://download.savannah.gnu.org/releases/freetype/freetype-2.14.1.tar.gz || \
-        wget -q https://mirrors.kernel.org/gnu/freetype/freetype-2.14.1.tar.gz || \
+        echo "📥 Downloading freetype from official GitHub mirror..."
+        wget -q https://github.com/freetype/freetype/archive/refs/tags/VER-2-14-1.tar.gz -O freetype-2.14.1.tar.gz || \
+        wget -q https://download.savannah.nongnu.org/releases/freetype/freetype-2.14.1.tar.gz || \
+        wget -q https://ftp.fau.de/gnu/gnu/freetype/freetype-2.14.1.tar.gz || \
+        wget -q https://ftp.gnu.org/gnu/freetype/freetype-2.14.1.tar.gz || \
         echo "⚠️ All mirrors failed, will retry during build"
         
         echo "📂 Files in freetype directory:"
