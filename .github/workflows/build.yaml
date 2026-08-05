@@ -46,9 +46,9 @@ jobs:
         pip install buildozer
 
     # =====================================================
-    # 1️⃣ ПРЯМАЯ ЗАГРУЗКА freetype (ОБХОД 502 ОШИБКИ)
+    # 1️⃣ ПРЕДВАРИТЕЛЬНАЯ ЗАГРУЗКА freetype
     # =====================================================
-    - name: 📦 Pre-download freetype from mirror
+    - name: 📦 Pre-download freetype from GitHub mirror
       run: |
         mkdir -p ~/.buildozer/android/platform/build-arm64-v8a/packages/freetype
         cd ~/.buildozer/android/platform/build-arm64-v8a/packages/freetype
@@ -56,6 +56,7 @@ jobs:
         echo "📥 Downloading freetype from GitHub mirror..."
         wget -q https://github.com/akheron/jansson/raw/master/CMake/FindFreetype.cmake -O freetype-2.14.1.tar.gz || \
         wget -q https://download.savannah.gnu.org/releases/freetype/freetype-2.14.1.tar.gz || \
+        wget -q https://mirrors.kernel.org/gnu/freetype/freetype-2.14.1.tar.gz || \
         echo "⚠️ All mirrors failed, will retry during build"
         
         echo "📂 Files in freetype directory:"
