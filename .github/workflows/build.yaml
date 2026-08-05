@@ -68,12 +68,12 @@ jobs:
           -v ~/.buildozer:/home/user/.buildozer \
           -v ~/.android:/home/user/.android \
           -w /app \
-          kivy/buildozer:latest \
+          kivy/buildozer:ci \
           bash -c "
             export ANDROID_HOME=/home/user/.android/sdk
             export ANDROID_SDK_ROOT=/home/user/.android/sdk
             export PATH=\$ANDROID_HOME/cmdline-tools/latest/bin:\$ANDROID_HOME/tools/bin:\$ANDROID_HOME/platform-tools:\$PATH
-            yes | buildozer android debug
+            buildozer android debug
           "
 
     - name: 📤 Upload APK
