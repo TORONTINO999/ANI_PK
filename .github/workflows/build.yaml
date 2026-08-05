@@ -210,6 +210,16 @@ jobs:
         export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
+    - name: 🔄 Reinstall python-for-android with latest NDK support
+      run: |
+        cd ~/.buildozer/android/platform
+        rm -rf python-for-android
+        git clone --depth 1 https://github.com/kivy/python-for-android.git
+        cd python-for-android
+        pip install -e .
+        echo "✅ python-for-android reinstalled with latest version"
+        python -c "from pythonforandroid import __version__; print(f'p4a version: {__version__}')"
+
     - name: 🔧 Force Buildozer to use correct NDK
       run: |
         mkdir -p ~/.buildozer
