@@ -5,10 +5,14 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 90
+    timeout-minutes: 180
 
     steps:
     - name: Checkout code
@@ -33,7 +37,7 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update -qq
-        sudo apt-get install -y -qq \
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
           git zip unzip autoconf libtool pkg-config \
           zlib1g-dev libncurses5-dev libncursesw5-dev \
           cmake libffi-dev libssl-dev \
@@ -46,9 +50,18 @@ jobs:
         pip install buildozer
 
     # =====================================================
-    # 1️⃣ ПРЕДВАРИТЕЛЬНАЯ ЗАГРУЗКА ВСЕХ ЗАВИСИМОСТЕЙ
+    # 1️⃣ УВЕЛИЧИВАЕМ ЛИМИТЫ GIT
     # =====================================================
-    - name: 📦 Pre-download all dependencies
+    - name: ⚙️ Configure Git for large repos
+      run: |
+        git config --global http.postBuffer 524288000
+        git config --global http.lowSpeedLimit 0
+        git config --global http.lowSpeedTime 999999
+
+    # =====================================================
+    # 2️⃣ ПРЕДВАРИТЕЛЬНАЯ ЗАГРУЗКА ВСЕХ АРХИВОВ
+    # =====================================================
+    - name: 📦 Pre-download all recipe archives
       run: |
         BASE_DIR="$HOME/.buildozer/android/platform/build-arm64-v8a/packages"
         mkdir -p "$BASE_DIR"
@@ -56,17 +69,17 @@ jobs:
         
         # freetype
         mkdir -p freetype && cd freetype
-        wget -q --timeout=60 https://github.com/freetype/freetype/archive/refs/tags/VER-2-14-1.tar.gz -O freetype-2.14.1.tar.gz || \
-          wget -q --timeout=60 https://download.savannah.gnu.org/releases/freetype/freetype-2.14.1.tar.gz
+        wget -q --timeout=60 https://github.com/freetype/freetype/archive/refs/tags/VER-2-14-1.tar.gz -O freetype-2.14.1.tar.gz
         tar -xzf freetype-2.14.1.tar.gz
-        mv freetype-VER-2-14-1 freetype-2.14.1 2>/dev/null || true
         cd ..
         
-        # hostpython3 - ВАЖНО: версия 3.11.12, совпадает с buildozer.spec
-        mkdir -p hostpython3 && cd hostpython3
-        wget -q --timeout=60 https://github.com/python/cpython/archive/refs/tags/v3.11.12.tar.gz
-        tar -xzf v3.11.12.tar.gz
-        cd ..
+        # hostpython3 & python3
+        mkdir -p hostpython3 python3
+        wget -q --timeout=60 https://github.com/python/cpython/archive/refs/tags/v3.11.12.tar.gz -O python3.tar.gz
+        cp python3.tar.gz hostpython3/v3.11.12.tar.gz
+        cp python3.tar.gz python3/v3.11.12.tar.gz
+        cd hostpython3 && tar -xzf v3.11.12.tar.gz && cd ..
+        cd python3 && tar -xzf v3.11.12.tar.gz && cd ..
         
         # jpeg
         mkdir -p jpeg && cd jpeg
@@ -140,11 +153,11 @@ jobs:
         unzip -q 2.2.1.zip
         cd ..
         
-        echo "✅ All archives pre-downloaded"
-        ls -la "$BASE_DIR"
+        echo "✅ All archives pre-downloaded and extracted"
+        du -sh "$BASE_DIR"
 
     # =====================================================
-    # 2️⃣ НАСТРОЙКА SDK
+    # 3️⃣ НАСТРОЙКА SDK
     # =====================================================
     - name: 🚀 Setup Android SDK
       uses: amyu/setup-android@v5
@@ -152,18 +165,18 @@ jobs:
         sdk-version: 33
         build-tools-version: 33.0.2
         ndk-version: 25.2.9519653
+        command-line-tools-version: 14742923
 
     - name: Cache Buildozer
       uses: actions/cache@v4
       with:
-        path: ~/.buildozer
-        key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
+        path: |
+          ~/.buildozer
+        key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}-${{ github.run_id }}
         restore-keys: |
+          ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}-
           ${{ runner.os }}-buildozer-
 
-    # =====================================================
-    # 3️⃣ КОПИРУЕМ SDK
-    # =====================================================
     - name: 🔧 Configure SDK for Buildozer
       run: |
         export AMYU_SDK=$HOME/.android/sdk
@@ -191,13 +204,33 @@ jobs:
         echo "ANDROID_HOME=$BUILD_OZER_SDK" >> $GITHUB_ENV
         echo "ANDROID_SDK_ROOT=$BUILD_OZER_SDK" >> $GITHUB_ENV
 
-    # =====================================================
-    # 4️⃣ ПРИНИМАЕМ ЛИЦЕНЗИИ
-    # =====================================================
     - name: Accept Android licenses
       run: |
         export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+
+    # =====================================================
+    # 4️⃣ ИСПОЛЬЗУЕМ PATCH ДЛЯ SDL2_IMAGE — ОТКЛЮЧАЕМ LIBJXL
+    # =====================================================
+    - name: 📝 Patch sdl2_image to disable libjxl
+      run: |
+        SDL2_IMAGE_DIR="$HOME/.buildozer/android/platform/build-arm64-v8a/build/bootstrap_builds/sdl2/jni/SDL2_image"
+        
+        if [[ -d "$SDL2_IMAGE_DIR" ]]; then
+          echo "📝 Patching SDL2_image Android.mk to disable libjxl..."
+          
+          # Отключаем libjxl в Android.mk
+          sed -i 's/^\(LOCAL_CFLAGS += -DSDL_IMAGE_USE_LIBJXL\)/# \1/' "$SDL2_IMAGE_DIR/Android.mk" 2>/dev/null || true
+          sed -i 's/^\(LOCAL_SHARED_LIBRARIES += libjxl\)/# \1/' "$SDL2_IMAGE_DIR/Android.mk" 2>/dev/null || true
+          
+          # Или используем более агрессивный подход
+          if [[ -f "$SDL2_IMAGE_DIR/Android.mk" ]]; then
+            echo "✅ Android.mk found and patched"
+            grep -i "jxl" "$SDL2_IMAGE_DIR/Android.mk" || echo "  no jxl references found"
+          fi
+        else
+          echo "⚠️ SDL2_image directory not found yet, patch will be applied later"
+        fi
 
     # =====================================================
     # 5️⃣ СБОРКА APK
@@ -212,12 +245,13 @@ jobs:
         echo "========================================="
         echo "🔨 STARTING BUILD"
         echo "========================================="
+        echo "ANDROID_HOME: $ANDROID_HOME"
+        echo "========================================="
         
         echo "🚀 Running buildozer..."
-        buildozer android debug || {
-          echo "❌ Build failed! Dumping logs..."
-          find ~/.buildozer -name "*.log" -exec echo "=== {} ===" \; -exec tail -n 100 {} \; 2>/dev/null || true
-          find .buildozer -name "*.log" -exec echo "=== {} ===" \; -exec tail -n 100 {} \; 2>/dev/null || true
+        buildozer android debug 2>&1 | tee build.log || {
+          echo "❌ Build failed! Dumping last 200 lines of logs..."
+          tail -n 200 build.log
           exit 1
         }
         
@@ -227,6 +261,7 @@ jobs:
         ls -la bin/ || echo "❌ No APK found!"
 
     - name: 📤 Upload APK
+      if: success()
       uses: actions/upload-artifact@v4
       with:
         name: anime-parser-apk
@@ -236,7 +271,7 @@ jobs:
     - name: 📧 Notify build result
       if: always()
       run: |
-        if [[ ${{ job.status }} == "success" ]]; then
+        if [[ "${{ job.status }}" == "success" ]]; then
           echo "✅ Build succeeded! APK uploaded to artifacts."
         else
           echo "❌ Build failed!"
