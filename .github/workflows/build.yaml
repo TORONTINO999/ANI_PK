@@ -51,7 +51,18 @@ jobs:
         ndk-version: 25.2.9519653
 
     # =====================================================
-    # 2️⃣ КОПИРУЕМ SDK В ПАПКУ BUILD OZER
+    # 2️⃣ КЭШИРУЕМ BUILD OZER (ПЕРЕД КОПИРОВАНИЕМ SDK)
+    # =====================================================
+    - name: Cache Buildozer
+      uses: actions/cache@v4
+      with:
+        path: ~/.buildozer
+        key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
+        restore-keys: |
+          ${{ runner.os }}-buildozer-
+
+    # =====================================================
+    # 3️⃣ КОПИРУЕМ SDK И СОЗДАЕМ НУЖНУЮ СТРУКТУРУ
     # =====================================================
     - name: 🔧 Configure SDK for Buildozer
       run: |
@@ -59,16 +70,20 @@ jobs:
         export BUILD_OZER_SDK=$HOME/.buildozer/android/platform/android-sdk
         
         echo "🔄 Copying SDK from amyu to Buildozer location..."
-        
-        # СОЗДАЕМ ВСЕ НУЖНЫЕ ПАПКИ
         mkdir -p $BUILD_OZER_SDK
-        
-        # Копируем SDK (создаем папку назначения)
         cp -r $AMYU_SDK/* $BUILD_OZER_SDK/
         
-        # Проверяем результат
         echo "✅ SDK copied to: $BUILD_OZER_SDK"
-        ls -la $BUILD_OZER_SDK | head -20
+        
+        # Создаем структуру, которую ожидает Buildozer
+        echo "🔧 Creating legacy tools structure for Buildozer..."
+        mkdir -p $BUILD_OZER_SDK/tools/bin
+        
+        # Создаем символические ссылки на sdkmanager и другие инструменты
+        ln -sf $BUILD_OZER_SDK/cmdline-tools/latest/bin/sdkmanager $BUILD_OZER_SDK/tools/bin/sdkmanager
+        ln -sf $BUILD_OZER_SDK/cmdline-tools/latest/bin/avdmanager $BUILD_OZER_SDK/tools/bin/avdmanager
+        
+        echo "✅ Legacy tools links created"
         
         # Проверяем platform-tools
         if [[ -d "$BUILD_OZER_SDK/platform-tools" ]]; then
@@ -78,7 +93,7 @@ jobs:
           exit 1
         fi
         
-        # Создаем файл с принятыми лицензиями для Buildozer
+        # Создаем файл с принятыми лицензиями
         mkdir -p ~/.android
         touch ~/.android/repositories.cfg
         
@@ -87,7 +102,17 @@ jobs:
         echo "ANDROID_SDK_ROOT=$BUILD_OZER_SDK" >> $GITHUB_ENV
 
     # =====================================================
-    # 3️⃣ ДИАГНОСТИКА SDK
+    # 4️⃣ ПРИНИМАЕМ ЛИЦЕНЗИИ
+    # =====================================================
+    - name: Accept Android licenses
+      run: |
+        export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
+        echo "📝 Accepting Android SDK licenses..."
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+        echo "✅ Licenses accepted"
+
+    # =====================================================
+    # 5️⃣ ДИАГНОСТИКА SDK
     # =====================================================
     - name: 🔍 SDK Diagnostics
       run: |
@@ -100,7 +125,11 @@ jobs:
         echo ""
         
         echo "📂 SDK Structure:"
-        ls -la $ANDROID_HOME | head -20
+        ls -la $ANDROID_HOME
+        echo ""
+        
+        echo "🔍 Checking tools/bin:"
+        ls -la $ANDROID_HOME/tools/bin/ 2>/dev/null || echo "  ❌ tools/bin not found!"
         echo ""
         
         echo "📦 Checking components:"
@@ -117,28 +146,13 @@ jobs:
         find $ANDROID_HOME -name "sdkmanager" 2>/dev/null | head -3
         echo "========================================="
 
-    - name: Cache Buildozer
-      uses: actions/cache@v4
-      with:
-        path: ~/.buildozer
-        key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
-        restore-keys: |
-          ${{ runner.os }}-buildozer-
-
     # =====================================================
-    # 4️⃣ СБОРКА APK
+    # 6️⃣ СБОРКА APK
     # =====================================================
     - name: 🔨 Build APK
       run: |
         export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
-        export PATH=$ANDROID_HOME/platform-tools:$PATH
-        
-        # Добавляем sdkmanager в PATH
-        if [[ -d "$ANDROID_HOME/cmdline-tools/latest/bin" ]]; then
-          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
-        elif [[ -d "$ANDROID_HOME/tools/bin" ]]; then
-          export PATH=$ANDROID_HOME/tools/bin:$PATH
-        fi
+        export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/tools/bin:$ANDROID_HOME/platform-tools:$PATH
         
         echo "========================================="
         echo "🔨 STARTING BUILD"
@@ -147,11 +161,11 @@ jobs:
         echo "PATH: $PATH"
         echo "========================================="
         
-        # Проверяем sdkmanager
-        if command -v sdkmanager &> /dev/null; then
-          echo "✅ sdkmanager: $(which sdkmanager)"
+        # Проверяем sdkmanager в нужном месте
+        if [[ -f "$ANDROID_HOME/tools/bin/sdkmanager" ]]; then
+          echo "✅ sdkmanager found at tools/bin/"
         else
-          echo "❌ sdkmanager NOT in PATH!"
+          echo "❌ sdkmanager NOT found at tools/bin/"
           exit 1
         fi
         
