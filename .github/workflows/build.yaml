@@ -48,41 +48,30 @@ jobs:
     - name: Clean old Android SDK
       run: rm -rf ~/.buildozer/android/platform/android-sdk || true
 
-    - name: Setup Android SDK (with guaranteed license acceptance)
+    - name: Setup Android SDK (OLD VERSION - no license issues)
       run: |
         export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
         mkdir -p $ANDROID_HOME
         cd $ANDROID_HOME
         
-        # Скачиваем SDK Tools
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-        unzip -q commandlinetools-linux-11076708_latest.zip
-        rm commandlinetools-linux-11076708_latest.zip
+        # СКАЧИВАЕМ СТАРУЮ ВЕРСИЮ SDK TOOLS (НЕ ТРЕБУЕТ ЛИЦЕНЗИЙ)
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+        unzip -q commandlinetools-linux-9477386_latest.zip
+        rm commandlinetools-linux-9477386_latest.zip
         
-        # Правильная структура
-        mkdir -p cmdline-tools/latest
-        mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
+        # Структура для старой версии (другая!)
+        mkdir -p tools
+        mv cmdline-tools/* tools/ 2>/dev/null || true
         
-        # ============================================
-        # САМЫЙ НАДЁЖНЫЙ МЕТОД ПРИНЯТИЯ ЛИЦЕНЗИЙ
-        # ============================================
-        # Создаём файл с ответами для ВСЕХ лицензий
-        for i in {1..20}; do echo "y"; done > /tmp/yes.txt
-        
-        # Принимаем лицензии (с повтором для надёжности)
-        cat /tmp/yes.txt | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-        
-        # Ещё раз, с verbose для отладки
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses 2>&1 || true
+        # Принимаем лицензии (старая версия не требует ввода)
+        yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses || true
         
         # Устанавливаем компоненты
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" || true
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-33" || true
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.2" || true
+        $ANDROID_HOME/tools/bin/sdkmanager "platform-tools" || true
+        $ANDROID_HOME/tools/bin/sdkmanager "platforms;android-33" || true
+        $ANDROID_HOME/tools/bin/sdkmanager "build-tools;33.0.2" || true
         
-        # Проверяем, что SDK установлен
-        echo "SDK setup completed"
-        ls -la $ANDROID_HOME/
+        echo "SDK setup completed with old version"
 
     - name: Cache Buildozer
       uses: actions/cache@v4
@@ -95,7 +84,7 @@ jobs:
     - name: Build APK
       run: |
         export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
-        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
+        export PATH=$PATH:$ANDROID_HOME/tools/bin:$ANDROID_HOME/platform-tools
         buildozer android debug
 
     - name: Upload APK
