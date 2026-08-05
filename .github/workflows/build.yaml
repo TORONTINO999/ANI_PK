@@ -51,7 +51,7 @@ jobs:
         ndk-version: 25.2.9519653
 
     # =====================================================
-    # 2️⃣ НАСТРАИВАЕМ ПЕРЕМЕННЫЕ И КОПИРУЕМ SDK
+    # 2️⃣ КОПИРУЕМ SDK В ПАПКУ BUILD OZER
     # =====================================================
     - name: 🔧 Configure SDK for Buildozer
       run: |
@@ -60,33 +60,34 @@ jobs:
         
         echo "🔄 Copying SDK from amyu to Buildozer location..."
         
-        # Удаляем старый SDK Buildozer
-        rm -rf $BUILD_OZER_SDK 2>/dev/null || true
+        # СОЗДАЕМ ВСЕ НУЖНЫЕ ПАПКИ
+        mkdir -p $BUILD_OZER_SDK
         
-        # Копируем SDK (не симлинк, чтобы Buildozer не перезаписал)
-        cp -r $AMYU_SDK $BUILD_OZER_SDK
+        # Копируем SDK (создаем папку назначения)
+        cp -r $AMYU_SDK/* $BUILD_OZER_SDK/
         
         # Проверяем результат
         echo "✅ SDK copied to: $BUILD_OZER_SDK"
-        ls -la $BUILD_OZER_SDK
+        ls -la $BUILD_OZER_SDK | head -20
         
         # Проверяем platform-tools
         if [[ -d "$BUILD_OZER_SDK/platform-tools" ]]; then
           echo "✅ platform-tools found!"
         else
-          echo "❌ platform-tools not found! Creating symlink..."
-          ln -sf $AMYU_SDK/platform-tools $BUILD_OZER_SDK/platform-tools
+          echo "❌ platform-tools not found!"
+          exit 1
         fi
         
         # Создаем файл с принятыми лицензиями для Buildozer
         mkdir -p ~/.android
         touch ~/.android/repositories.cfg
         
+        # Устанавливаем переменные окружения
         echo "ANDROID_HOME=$BUILD_OZER_SDK" >> $GITHUB_ENV
         echo "ANDROID_SDK_ROOT=$BUILD_OZER_SDK" >> $GITHUB_ENV
 
     # =====================================================
-    # 3️⃣ ДИАГНОСТИКА
+    # 3️⃣ ДИАГНОСТИКА SDK
     # =====================================================
     - name: 🔍 SDK Diagnostics
       run: |
@@ -149,7 +150,6 @@ jobs:
         # Проверяем sdkmanager
         if command -v sdkmanager &> /dev/null; then
           echo "✅ sdkmanager: $(which sdkmanager)"
-          sdkmanager --version || echo "⚠️ Could not get version"
         else
           echo "❌ sdkmanager NOT in PATH!"
           exit 1
