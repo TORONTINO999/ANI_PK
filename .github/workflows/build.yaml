@@ -29,112 +29,7 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '24'
-
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update -qq
-        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
-          git zip unzip autoconf libtool pkg-config \
-          zlib1g-dev libncurses5-dev libncursesw5-dev \
-          cmake libffi-dev libssl-dev \
-          automake libltdl-dev python3-dev \
-          libtinfo6 ccache
-
-    - name: Install Python packages
-      run: |
-        python -m pip install --upgrade pip
-        pip install buildozer
-
-    - name: 📦 Pre-download recipes with correct Python version
-      run: |
-        BASE_DIR="$HOME/.buildozer/android/platform/build-arm64-v8a/packages"
-        mkdir -p "$BASE_DIR"
-        cd "$BASE_DIR"
-        
-        PYTHON_VERSION="3.11.12"
-        
-        mkdir -p hostpython3 && cd hostpython3
-        wget -q --timeout=60 https://github.com/python/cpython/archive/refs/tags/v${PYTHON_VERSION}.tar.gz -O v${PYTHON_VERSION}.tar.gz
-        tar -xzf v${PYTHON_VERSION}.tar.gz
-        cd ..
-        
-        mkdir -p python3 && cd python3
-        cp ../hostpython3/v${PYTHON_VERSION}.tar.gz .
-        tar -xzf v${PYTHON_VERSION}.tar.gz
-        cd ..
-        
-        mkdir -p freetype && cd freetype
-        wget -q --timeout=60 https://github.com/freetype/freetype/archive/refs/tags/VER-2-14-1.tar.gz -O freetype-2.14.1.tar.gz
-        tar -xzf freetype-2.14.1.tar.gz
-        cd ..
-        
-        mkdir -p jpeg && cd jpeg
-        wget -q --timeout=60 https://github.com/libjpeg-turbo/libjpeg-turbo/archive/2.0.1.tar.gz -O 2.0.1.tar.gz
-        tar -xzf 2.0.1.tar.gz
-        cd ..
-        
-        mkdir -p libffi && cd libffi
-        wget -q --timeout=60 https://github.com/libffi/libffi/archive/v3.4.2.tar.gz -O v3.4.2.tar.gz
-        tar -xzf v3.4.2.tar.gz
-        cd ..
-        
-        mkdir -p openssl && cd openssl
-        wget -q --timeout=60 https://www.openssl.org/source/openssl-3.3.1.tar.gz -O openssl-3.3.1.tar.gz
-        tar -xzf openssl-3.3.1.tar.gz
-        cd ..
-        
-        mkdir -p png && cd png
-        wget -q --timeout=60 https://github.com/glennrp/libpng/archive/v1.6.37.zip -O v1.6.37.zip
-        unzip -q v1.6.37.zip
-        cd ..
-        
-        mkdir -p sdl2_image && cd sdl2_image
-        wget -q --timeout=60 https://github.com/libsdl-org/SDL_image/releases/download/release-2.8.2/SDL2_image-2.8.2.tar.gz -O SDL2_image-2.8.2.tar.gz
-        tar -xzf SDL2_image-2.8.2.tar.gz
-        cd ..
-        
-        mkdir -p sdl2_mixer && cd sdl2_mixer
-        wget -q --timeout=60 https://github.com/libsdl-org/SDL_mixer/releases/download/release-2.6.3/SDL2_mixer-2.6.3.tar.gz -O SDL2_mixer-2.6.3.tar.gz
-        tar -xzf SDL2_mixer-2.6.3.tar.gz
-        cd ..
-        
-        mkdir -p sdl2_ttf && cd sdl2_ttf
-        wget -q --timeout=60 https://github.com/libsdl-org/SDL_ttf/releases/download/release-2.22.0/SDL2_ttf-2.22.0.tar.gz -O SDL2_ttf-2.22.0.tar.gz
-        tar -xzf SDL2_ttf-2.22.0.tar.gz
-        cd ..
-        
-        mkdir -p sqlite3 && cd sqlite3
-        wget -q --timeout=60 https://github.com/sqlite/sqlite/archive/refs/tags/version-3.50.4.tar.gz -O version-3.50.4.tar.gz
-        tar -xzf version-3.50.4.tar.gz
-        cd ..
-        
-        mkdir -p sdl2 && cd sdl2
-        wget -q --timeout=60 https://github.com/libsdl-org/SDL/releases/download/release-2.30.11/SDL2-2.30.11.tar.gz -O SDL2-2.30.11.tar.gz
-        tar -xzf SDL2-2.30.11.tar.gz
-        cd ..
-        
-        mkdir -p Pillow && cd Pillow
-        wget -q --timeout=60 https://github.com/python-pillow/Pillow/archive/11.3.0.tar.gz -O 11.3.0.tar.gz
-        tar -xzf 11.3.0.tar.gz
-        cd ..
-        
-        mkdir -p pyjnius && cd pyjnius
-        wget -q --timeout=60 https://github.com/kivy/pyjnius/archive/1.7.0.zip -O 1.7.0.zip
-        unzip -q 1.7.0.zip
-        cd ..
-        
-        mkdir -p kivy && cd kivy
-        wget -q --timeout=60 https://github.com/kivy/kivy/archive/2.2.1.zip -O 2.2.1.zip
-        unzip -q 2.2.1.zip
-        cd ..
-        
-        echo "✅ All archives pre-downloaded with Python ${PYTHON_VERSION}"
-
-    - name: 🚀 Setup Android SDK
+    - name: Setup Android SDK
       uses: amyu/setup-android@v5
       with:
         sdk-version: 33
@@ -152,7 +47,7 @@ jobs:
           ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}-
           ${{ runner.os }}-buildozer-
 
-    - name: 🔧 Configure SDK for Buildozer
+    - name: Setup Android SDK for Buildozer
       run: |
         export AMYU_SDK=$HOME/.android/sdk
         export BUILD_OZER_SDK=$HOME/.buildozer/android/platform/android-sdk
@@ -179,137 +74,17 @@ jobs:
         echo "ANDROID_HOME=$BUILD_OZER_SDK" >> $GITHUB_ENV
         echo "ANDROID_SDK_ROOT=$BUILD_OZER_SDK" >> $GITHUB_ENV
 
-    - name: 🔗 Verify and Link NDK for Buildozer
-      run: |
-        export BUILD_OZER_SDK=$HOME/.buildozer/android/platform/android-sdk
-        export NDK_VERSION="25.2.9519653"
-        
-        echo "📂 Checking NDK location..."
-        
-        if [[ -d "$BUILD_OZER_SDK/ndk/$NDK_VERSION" ]]; then
-          echo "✅ NDK already exists at $BUILD_OZER_SDK/ndk/$NDK_VERSION"
-        else
-          echo "📦 NDK not found, copying from $ANDROID_HOME/ndk/$NDK_VERSION..."
-          mkdir -p $BUILD_OZER_SDK/ndk
-          cp -r $ANDROID_HOME/ndk/$NDK_VERSION $BUILD_OZER_SDK/ndk/
-        fi
-        
-        if [[ ! -L "$BUILD_OZER_SDK/ndk-bundle" ]] && [[ ! -d "$BUILD_OZER_SDK/ndk-bundle" ]]; then
-          echo "🔗 Creating ndk-bundle symlink..."
-          ln -sf $BUILD_OZER_SDK/ndk/$NDK_VERSION $BUILD_OZER_SDK/ndk-bundle
-        else
-          echo "✅ ndk-bundle already exists"
-        fi
-        
-        echo "✅ NDK ready: $NDK_VERSION"
-        ls -la $BUILD_OZER_SDK/ndk/ || echo "❌ NDK directory not found!"
-        ls -la $BUILD_OZER_SDK/ndk-bundle || echo "❌ ndk-bundle not found!"
-
     - name: Accept Android licenses
       run: |
         export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-    - name: 🔄 Install latest python-for-android
-      run: |
-        cd ~/.buildozer/android/platform
-        rm -rf python-for-android
-        git clone --depth 1 https://github.com/kivy/python-for-android.git
-        cd python-for-android
-        pip install -e .
-        echo "✅ python-for-android installed"
-        python -c "from pythonforandroid import __version__; print(f'p4a version: {__version__}')"
-
-    - name: 🔧 Create buildozer.spec
-      run: |
-        mkdir -p ~/.buildozer
-        cat > ~/.buildozer/default.spec << 'EOF'
-        [app]
-        android.ndk = 25.2.9519653
-        android.api = 33
-        android.minapi = 21
-        android.build_tools = 33.0.2
-        
-        [buildozer]
-        log_level = 2
-        EOF
-        
-        cat > buildozer.spec << 'EOF'
-        [app]
-        title = Anime Parser Pro
-        package.name = animeparserpro
-        package.domain = org.animeparser
-        source.dir = .
-        source.include_exts = py,png,jpg,kv,atlas,ttf,json,md
-        version = 1.0.0
-        requirements = python3==3.11.12,kivy==2.2.1,kivymd==1.1.1,pillow,requests,beautifulsoup4,html5lib,urllib3,charset-normalizer,idna,certifi
-        orientation = portrait
-        fullscreen = 0
-        android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE,ACCESS_NETWORK_STATE
-        android.api = 33
-        android.minapi = 21
-        android.ndk = 25.2.9519653
-        android.ndk_api = 21
-        android.archs = arm64-v8a
-        android.allow_backup = True
-        android.build_tools = 33.0.2
-        
-        [buildozer]
-        log_level = 2
-        warn_on_root = 1
-        EOF
-        
-        echo "✅ buildozer.spec created"
-        cat buildozer.spec | grep android.ndk
-
-    - name: 🔨 Build APK with p4a directly
-      run: |
-        export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
-        export ANDROID_NDK_HOME=$ANDROID_HOME/ndk/25.2.9519653
-        export ANDROID_SDK_ROOT=$ANDROID_HOME
-        export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/tools/bin:$ANDROID_HOME/platform-tools:$PATH
-        
-        echo "🔍 Verifying NDK installation..."
-        if [[ -d "$ANDROID_NDK_HOME" ]]; then
-          echo "✅ NDK found at $ANDROID_NDK_HOME"
-        else
-          echo "❌ NDK not found!"
-          ls -la $ANDROID_HOME/ndk/ || echo "No ndk directory"
-          exit 1
-        fi
-        
-        echo "========================================="
-        echo "🔨 BUILDING APK WITH P4A"
-        echo "========================================="
-        
-        cd ~/.buildozer/android/platform/python-for-android
-        
-        echo "🚀 Running p4a build..."
-        p4a apk \
-          --private $GITHUB_WORKSPACE \
-          --package org.animeparser.animeparserpro \
-          --name "Anime Parser Pro" \
-          --version 1.0.0 \
-          --bootstrap sdl2 \
-          --requirements python3==3.11.12,kivy==2.2.1,kivymd==1.1.1,pillow,requests,beautifulsoup4,html5lib,urllib3,charset-normalizer,idna,certifi \
-          --android-api 33 \
-          --ndk-api 21 \
-          --arch arm64-v8a \
-          --permission INTERNET \
-          --permission WRITE_EXTERNAL_STORAGE \
-          --permission READ_EXTERNAL_STORAGE \
-          --permission ACCESS_NETWORK_STATE \
-          --dist-name animeparserpro \
-          --python-version 3.11.12 \
-          --debug
-        
-        mkdir -p $GITHUB_WORKSPACE/bin
-        find ~/.buildozer/android/platform/python-for-android/dist -name "*.apk" -exec cp {} $GITHUB_WORKSPACE/bin/ \;
-        
-        echo "========================================="
-        echo "✅ BUILD COMPLETED"
-        echo "========================================="
-        ls -la $GITHUB_WORKSPACE/bin/ || echo "❌ No APK found!"
+    - name: 🔨 Build APK
+      uses: ArtemSBulgakov/buildozer-action@v1
+      with:
+        command: buildozer android debug
+        buildozer_version: stable
+        workdir: .
 
     - name: 📤 Upload APK
       if: success()
