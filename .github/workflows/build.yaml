@@ -5,14 +5,10 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 180
+    timeout-minutes: 90
 
     steps:
     - name: Checkout code
@@ -37,7 +33,7 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update -qq
-        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+        sudo apt-get install -y -qq \
           git zip unzip autoconf libtool pkg-config \
           zlib1g-dev libncurses5-dev libncursesw5-dev \
           cmake libffi-dev libssl-dev \
@@ -50,9 +46,9 @@ jobs:
         pip install buildozer
 
     # =====================================================
-    # ПРЕДВАРИТЕЛЬНАЯ ЗАГРУЗКА ВСЕХ АРХИВОВ
+    # 1️⃣ ПРЕДВАРИТЕЛЬНАЯ ЗАГРУЗКА ВСЕХ ЗАВИСИМОСТЕЙ
     # =====================================================
-    - name: 📦 Pre-download all recipe archives
+    - name: 📦 Pre-download all dependencies
       run: |
         BASE_DIR="$HOME/.buildozer/android/platform/build-arm64-v8a/packages"
         mkdir -p "$BASE_DIR"
@@ -60,13 +56,13 @@ jobs:
         
         # freetype
         mkdir -p freetype && cd freetype
-        wget -q --timeout=60 https://download.savannah.gnu.org/releases/freetype/freetype-2.14.1.tar.gz || \
-        wget -q --timeout=60 https://github.com/freetype/freetype/archive/refs/tags/VER-2-14-1.tar.gz -O freetype-2.14.1.tar.gz
+        wget -q --timeout=60 https://github.com/freetype/freetype/archive/refs/tags/VER-2-14-1.tar.gz -O freetype-2.14.1.tar.gz || \
+          wget -q --timeout=60 https://download.savannah.gnu.org/releases/freetype/freetype-2.14.1.tar.gz
         tar -xzf freetype-2.14.1.tar.gz
         mv freetype-VER-2-14-1 freetype-2.14.1 2>/dev/null || true
         cd ..
         
-        # hostpython3
+        # hostpython3 - ВАЖНО: версия 3.11.12, совпадает с buildozer.spec
         mkdir -p hostpython3 && cd hostpython3
         wget -q --timeout=60 https://github.com/python/cpython/archive/refs/tags/v3.11.12.tar.gz
         tar -xzf v3.11.12.tar.gz
@@ -148,7 +144,7 @@ jobs:
         ls -la "$BASE_DIR"
 
     # =====================================================
-    # НАСТРОЙКА SDK
+    # 2️⃣ НАСТРОЙКА SDK
     # =====================================================
     - name: 🚀 Setup Android SDK
       uses: amyu/setup-android@v5
@@ -156,20 +152,18 @@ jobs:
         sdk-version: 33
         build-tools-version: 33.0.2
         ndk-version: 25.2.9519653
-        command-line-tools-version: 14742923
 
     - name: Cache Buildozer
       uses: actions/cache@v4
       with:
-        path: |
-          ~/.buildozer/android/platform/build-arm64-v8a/build
-          ~/.buildozer/android/platform/build-arm64-v8a/dists
-          ~/.buildozer/android/platform/build-arm64-v8a/packages
-        key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}-${{ github.run_id }}
+        path: ~/.buildozer
+        key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
         restore-keys: |
-          ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}-
           ${{ runner.os }}-buildozer-
 
+    # =====================================================
+    # 3️⃣ КОПИРУЕМ SDK
+    # =====================================================
     - name: 🔧 Configure SDK for Buildozer
       run: |
         export AMYU_SDK=$HOME/.android/sdk
@@ -197,11 +191,17 @@ jobs:
         echo "ANDROID_HOME=$BUILD_OZER_SDK" >> $GITHUB_ENV
         echo "ANDROID_SDK_ROOT=$BUILD_OZER_SDK" >> $GITHUB_ENV
 
+    # =====================================================
+    # 4️⃣ ПРИНИМАЕМ ЛИЦЕНЗИИ
+    # =====================================================
     - name: Accept Android licenses
       run: |
         export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
+    # =====================================================
+    # 5️⃣ СБОРКА APK
+    # =====================================================
     - name: 🔨 Build APK
       run: |
         export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
@@ -227,7 +227,6 @@ jobs:
         ls -la bin/ || echo "❌ No APK found!"
 
     - name: 📤 Upload APK
-      if: success()
       uses: actions/upload-artifact@v4
       with:
         name: anime-parser-apk
@@ -237,7 +236,7 @@ jobs:
     - name: 📧 Notify build result
       if: always()
       run: |
-        if [[ "${{ job.status }}" == "success" ]]; then
+        if [[ ${{ job.status }} == "success" ]]; then
           echo "✅ Build succeeded! APK uploaded to artifacts."
         else
           echo "❌ Build failed!"
