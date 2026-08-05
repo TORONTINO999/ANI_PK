@@ -48,30 +48,36 @@ jobs:
     - name: Clean old Android SDK
       run: rm -rf ~/.buildozer/android/platform/android-sdk || true
 
-    - name: Setup Android SDK (FIXED)
+    - name: Setup Android SDK with Pre-accepted Licenses
       run: |
         export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
         mkdir -p $ANDROID_HOME
         cd $ANDROID_HOME
+
+        # 1. Скачиваем САМУЮ СВЕЖУЮ версию commandlinetools
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux_latest.zip
+        unzip -q commandlinetools-linux_latest.zip
+        rm commandlinetools-linux_latest.zip
+
+        # 2. Создаем правильную структуру для новых версий
+        mkdir -p cmdline-tools/latest
+        mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
+
+        # 3. Устанавливаем правильные пути
+        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
+
+        # 4. ПРИНИМАЕМ ВСЕ ЛИЦЕНЗИИ АВТОМАТИЧЕСКИ (ключевой шаг!)
+        # Это создает файл ~/.android/repositories.cfg и принимает все лицензии
+        mkdir -p ~/.android
+        touch ~/.android/repositories.cfg
         
-        # Правильная версия SDK Tools (старая, без лицензий)
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-6609375_latest.zip
-        unzip -q commandlinetools-linux-6609375_latest.zip
-        rm commandlinetools-linux-6609375_latest.zip
-        
-        # Правильная структура для старой версии
-        mkdir -p tools
-        cp -r cmdline-tools/* tools/ 2>/dev/null || true
-        
-        # Принимаем лицензии (старая версия)
-        yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses || true
-        
-        # Устанавливаем компоненты
-        $ANDROID_HOME/tools/bin/sdkmanager "platform-tools" || true
-        $ANDROID_HOME/tools/bin/sdkmanager "platforms;android-33" || true
-        $ANDROID_HOME/tools/bin/sdkmanager "build-tools;33.0.2" || true
-        
-        echo "SDK setup completed"
+        # Принимаем лицензии, подавляя интерактивный ввод
+        yes | sdkmanager --licenses > /dev/null 2>&1 || true
+
+        # 5. Устанавливаем необходимые компоненты SDK
+        sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+
+        echo "Android SDK successfully installed and licenses accepted."
 
     - name: Cache Buildozer
       uses: actions/cache@v4
@@ -84,12 +90,12 @@ jobs:
     - name: Build APK
       run: |
         export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
-        export PATH=$PATH:$ANDROID_HOME/tools/bin:$ANDROID_HOME/platform-tools
+        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
         buildozer android debug
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: anime-parser-apk
+        name: anime-parser-universal-apk
         path: bin/*.apk
         retention-days: 30
