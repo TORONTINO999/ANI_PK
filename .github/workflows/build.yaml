@@ -49,9 +49,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install buildozer
 
-    # =====================================================
-    # 1️⃣ ПРЕДВАРИТЕЛЬНАЯ ЗАГРУЗКА — ПРАВИЛЬНАЯ ВЕРСИЯ
-    # =====================================================
     - name: 📦 Pre-download recipes with correct Python version
       run: |
         BASE_DIR="$HOME/.buildozer/android/platform/build-arm64-v8a/packages"
@@ -60,91 +57,76 @@ jobs:
         
         PYTHON_VERSION="3.11.12"
         
-        # hostpython3
         mkdir -p hostpython3 && cd hostpython3
         wget -q --timeout=60 https://github.com/python/cpython/archive/refs/tags/v${PYTHON_VERSION}.tar.gz -O v${PYTHON_VERSION}.tar.gz
         tar -xzf v${PYTHON_VERSION}.tar.gz
         cd ..
         
-        # python3
         mkdir -p python3 && cd python3
         cp ../hostpython3/v${PYTHON_VERSION}.tar.gz .
         tar -xzf v${PYTHON_VERSION}.tar.gz
         cd ..
         
-        # freetype
         mkdir -p freetype && cd freetype
         wget -q --timeout=60 https://github.com/freetype/freetype/archive/refs/tags/VER-2-14-1.tar.gz -O freetype-2.14.1.tar.gz
         tar -xzf freetype-2.14.1.tar.gz
         cd ..
         
-        # jpeg
         mkdir -p jpeg && cd jpeg
         wget -q --timeout=60 https://github.com/libjpeg-turbo/libjpeg-turbo/archive/2.0.1.tar.gz -O 2.0.1.tar.gz
         tar -xzf 2.0.1.tar.gz
         cd ..
         
-        # libffi
         mkdir -p libffi && cd libffi
         wget -q --timeout=60 https://github.com/libffi/libffi/archive/v3.4.2.tar.gz -O v3.4.2.tar.gz
         tar -xzf v3.4.2.tar.gz
         cd ..
         
-        # openssl
         mkdir -p openssl && cd openssl
         wget -q --timeout=60 https://www.openssl.org/source/openssl-3.3.1.tar.gz -O openssl-3.3.1.tar.gz
         tar -xzf openssl-3.3.1.tar.gz
         cd ..
         
-        # png
         mkdir -p png && cd png
         wget -q --timeout=60 https://github.com/glennrp/libpng/archive/v1.6.37.zip -O v1.6.37.zip
         unzip -q v1.6.37.zip
         cd ..
         
-        # sdl2_image
         mkdir -p sdl2_image && cd sdl2_image
         wget -q --timeout=60 https://github.com/libsdl-org/SDL_image/releases/download/release-2.8.2/SDL2_image-2.8.2.tar.gz -O SDL2_image-2.8.2.tar.gz
         tar -xzf SDL2_image-2.8.2.tar.gz
         cd ..
         
-        # sdl2_mixer
         mkdir -p sdl2_mixer && cd sdl2_mixer
         wget -q --timeout=60 https://github.com/libsdl-org/SDL_mixer/releases/download/release-2.6.3/SDL2_mixer-2.6.3.tar.gz -O SDL2_mixer-2.6.3.tar.gz
         tar -xzf SDL2_mixer-2.6.3.tar.gz
         cd ..
         
-        # sdl2_ttf
         mkdir -p sdl2_ttf && cd sdl2_ttf
         wget -q --timeout=60 https://github.com/libsdl-org/SDL_ttf/releases/download/release-2.22.0/SDL2_ttf-2.22.0.tar.gz -O SDL2_ttf-2.22.0.tar.gz
         tar -xzf SDL2_ttf-2.22.0.tar.gz
         cd ..
         
-        # sqlite3
         mkdir -p sqlite3 && cd sqlite3
         wget -q --timeout=60 https://github.com/sqlite/sqlite/archive/refs/tags/version-3.50.4.tar.gz -O version-3.50.4.tar.gz
         tar -xzf version-3.50.4.tar.gz
         cd ..
         
-        # sdl2
         mkdir -p sdl2 && cd sdl2
         wget -q --timeout=60 https://github.com/libsdl-org/SDL/releases/download/release-2.30.11/SDL2-2.30.11.tar.gz -O SDL2-2.30.11.tar.gz
         tar -xzf SDL2-2.30.11.tar.gz
         cd ..
         
-        # pillow
         mkdir -p Pillow && cd Pillow
         wget -q --timeout=60 https://github.com/python-pillow/Pillow/archive/11.3.0.tar.gz -O 11.3.0.tar.gz
         tar -xzf 11.3.0.tar.gz
         cd ..
         
-        # pyjnius
         mkdir -p pyjnius && cd pyjnius
         wget -q --timeout=60 https://github.com/kivy/pyjnius/archive/1.7.0.zip -O 1.7.0.zip
         unzip -q 1.7.0.zip
         cd ..
         
-        # kivy
         mkdir -p kivy && cd kivy
         wget -q --timeout=60 https://github.com/kivy/kivy/archive/2.2.1.zip -O 2.2.1.zip
         unzip -q 2.2.1.zip
@@ -152,9 +134,6 @@ jobs:
         
         echo "✅ All archives pre-downloaded with Python ${PYTHON_VERSION}"
 
-    # =====================================================
-    # 2️⃣ НАСТРОЙКА SDK (ИСПОЛЬЗУЕТ КЭШ)
-    # =====================================================
     - name: 🚀 Setup Android SDK
       uses: amyu/setup-android@v5
       with:
@@ -200,9 +179,6 @@ jobs:
         echo "ANDROID_HOME=$BUILD_OZER_SDK" >> $GITHUB_ENV
         echo "ANDROID_SDK_ROOT=$BUILD_OZER_SDK" >> $GITHUB_ENV
 
-    # =====================================================
-    # 3️⃣ 🔗 ПРОВЕРКА И НАСТРОЙКА NDK (ИСПРАВЛЕНО)
-    # =====================================================
     - name: 🔗 Verify and Link NDK for Buildozer
       run: |
         export BUILD_OZER_SDK=$HOME/.buildozer/android/platform/android-sdk
@@ -210,7 +186,6 @@ jobs:
         
         echo "📂 Checking NDK location..."
         
-        # Проверяем, существует ли NDK уже в папке Buildozer
         if [[ -d "$BUILD_OZER_SDK/ndk/$NDK_VERSION" ]]; then
           echo "✅ NDK already exists at $BUILD_OZER_SDK/ndk/$NDK_VERSION"
         else
@@ -219,7 +194,6 @@ jobs:
           cp -r $ANDROID_HOME/ndk/$NDK_VERSION $BUILD_OZER_SDK/ndk/
         fi
         
-        # Создаем ndk-bundle если его нет
         if [[ ! -L "$BUILD_OZER_SDK/ndk-bundle" ]] && [[ ! -d "$BUILD_OZER_SDK/ndk-bundle" ]]; then
           echo "🔗 Creating ndk-bundle symlink..."
           ln -sf $BUILD_OZER_SDK/ndk/$NDK_VERSION $BUILD_OZER_SDK/ndk-bundle
@@ -228,15 +202,55 @@ jobs:
         fi
         
         echo "✅ NDK ready: $NDK_VERSION"
-        echo "📁 Contents of $BUILD_OZER_SDK/ndk/:"
         ls -la $BUILD_OZER_SDK/ndk/ || echo "❌ NDK directory not found!"
-        echo "📁 ndk-bundle symlink:"
         ls -la $BUILD_OZER_SDK/ndk-bundle || echo "❌ ndk-bundle not found!"
 
     - name: Accept Android licenses
       run: |
         export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+
+    - name: 🔧 Force Buildozer to use correct NDK
+      run: |
+        mkdir -p ~/.buildozer
+        cat > ~/.buildozer/default.spec << 'EOF'
+        [app]
+        android.ndk = 25.2.9519653
+        android.api = 33
+        android.minapi = 21
+        android.build_tools = 33.0.2
+        
+        [buildozer]
+        log_level = 2
+        EOF
+        
+        cat > buildozer.spec << 'EOF'
+        [app]
+        title = Anime Parser Pro
+        package.name = animeparserpro
+        package.domain = org.animeparser
+        source.dir = .
+        source.include_exts = py,png,jpg,kv,atlas,ttf,json,md
+        version = 1.0.0
+        requirements = python3==3.11.12,kivy==2.2.1,kivymd==1.1.1,pillow,requests,beautifulsoup4,html5lib,urllib3,charset-normalizer,idna,certifi
+        orientation = portrait
+        fullscreen = 0
+        android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE,ACCESS_NETWORK_STATE
+        android.api = 33
+        android.minapi = 21
+        android.ndk = 25.2.9519653
+        android.ndk_api = 21
+        android.archs = arm64-v8a
+        android.allow_backup = True
+        android.build_tools = 33.0.2
+        
+        [buildozer]
+        log_level = 2
+        warn_on_root = 1
+        EOF
+        
+        echo "✅ buildozer.spec updated"
+        cat buildozer.spec | grep android.ndk
 
     - name: 🔨 Build APK
       run: |
@@ -245,10 +259,12 @@ jobs:
         export TERM=dumb
         export PYTHONUNBUFFERED=1
         
-        # Добавляем явную проверку NDK
+        export ANDROID_NDK_HOME=$ANDROID_HOME/ndk/25.2.9519653
+        export ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/25.2.9519653
+        
         echo "🔍 Verifying NDK installation..."
-        if [[ -d "$ANDROID_HOME/ndk/25.2.9519653" ]]; then
-          echo "✅ NDK found at $ANDROID_HOME/ndk/25.2.9519653"
+        if [[ -d "$ANDROID_NDK_HOME" ]]; then
+          echo "✅ NDK found at $ANDROID_NDK_HOME"
         else
           echo "❌ NDK not found!"
           ls -la $ANDROID_HOME/ndk/ || echo "No ndk directory"
