@@ -73,7 +73,7 @@ jobs:
             export ANDROID_HOME=/home/user/.android/sdk
             export ANDROID_SDK_ROOT=/home/user/.android/sdk
             export PATH=\$ANDROID_HOME/cmdline-tools/latest/bin:\$ANDROID_HOME/tools/bin:\$ANDROID_HOME/platform-tools:\$PATH
-            echo 'y' | buildozer android debug
+            yes | buildozer android debug
           "
 
     - name: 📤 Upload APK
