@@ -17,13 +17,10 @@ android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE,ACCE
 android.api = 33
 android.minapi = 21
 android.ndk = 25c
-# Сокращаем количество архитектур для ускорения сборки
-# android.archs = armeabi-v7a, arm64-v8a, x86, x86_64
-android.archs = arm64-v8a  # Только одна архитектура для быстрой сборки
+android.archs = arm64-v8a
 android.allow_backup = True
 android.build_tools = 33.0.2
 
-# Добавляем настройки для уменьшения использования памяти
 android.gradle_dependencies =
 android.add_src =
 
