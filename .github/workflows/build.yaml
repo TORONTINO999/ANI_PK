@@ -8,21 +8,19 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 45
+    timeout-minutes: 90  # Увеличено до 90 минут для полной сборки
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    # --- Установка языков и утилит ---
     - name: Setup Python 3.10
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
 
-    # *** КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Установка Java 17 ***
-    - name: Setup Java 17 (required for latest SDK tools)
-      uses: actions/setup-java@v4
+    - name: Setup Java 17
+      uses: actions/setup-java@v5
       with:
         distribution: 'temurin'
         java-version: '17'
@@ -39,48 +37,41 @@ jobs:
           git zip unzip autoconf libtool pkg-config \
           zlib1g-dev libncurses5-dev libncursesw5-dev \
           cmake libffi-dev libssl-dev \
-          automake libltdl-dev python3-dev
+          automake libltdl-dev python3-dev \
+          ccache  # Добавлен ccache для ускорения сборки
         sudo apt-get install -y -qq libtinfo6 || true
 
-    # --- Подготовка среды Python и Buildozer ---
     - name: Install Python packages
       run: |
         python -m pip install --upgrade pip
         pip install buildozer
 
-    # --- Ручная настройка Android SDK (для совместимости с Buildozer) ---
     - name: Clean old Android SDK
       run: rm -rf ~/.buildozer/android/platform/android-sdk || true
 
-    # *** ЭТАП ГАРАНТИРУЕТ УСТАНОВКУ SDK, КОТОРЫЙ РАБОТАЕТ С JAVA 17 ***
     - name: Setup Android SDK
       run: |
         export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
         mkdir -p $ANDROID_HOME
         cd $ANDROID_HOME
         
-        # Скачиваем последнюю версию SDK Tools (работает с Java 17+)
         wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
         unzip -q commandlinetools-linux-11076708_latest.zip
         rm commandlinetools-linux-11076708_latest.zip
         
-        # Правильная структура папок для SDK Manager
         mkdir -p cmdline-tools/latest
         mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
         
-        # Создаем ссылку для обратной совместимости с Buildozer
         mkdir -p tools/bin
         ln -sf $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager $ANDROID_HOME/tools/bin/sdkmanager || true
         
-        # Принимаем лицензии и устанавливаем необходимые компоненты
         yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses || true
         $ANDROID_HOME/tools/bin/sdkmanager "platform-tools" || true
         $ANDROID_HOME/tools/bin/sdkmanager "platforms;android-33" || true
         $ANDROID_HOME/tools/bin/sdkmanager "build-tools;33.0.2" || true
 
-    # --- Кэширование и сборка ---
     - name: Cache Buildozer
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.buildozer
         key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
@@ -88,12 +79,15 @@ jobs:
           ${{ runner.os }}-buildozer-
 
     - name: Build APK
+      env:
+        # Увеличиваем лимит памяти для компилятора
+        GRADLE_OPTS: "-Xmx2048m -Dorg.gradle.daemon=false"
+        JAVA_OPTS: "-Xmx2048m"
       run: |
         export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
         export PATH=$PATH:$ANDROID_HOME/tools/bin:$ANDROID_HOME/platform-tools
         buildozer android debug
 
-    # --- Сохранение результата ---
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
