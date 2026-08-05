@@ -18,124 +18,20 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup Python 3.11
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-
-    - name: Setup Java 17
-      uses: actions/setup-java@v5
-      with:
-        distribution: 'temurin'
-        java-version: '17'
-
-    - name: Install system dependencies
+    - name: Build APK with Docker
       run: |
-        sudo apt-get update -qq
-        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
-          git zip unzip autoconf libtool pkg-config \
-          zlib1g-dev libncurses5-dev libncursesw5-dev \
-          cmake libffi-dev libssl-dev \
-          automake libltdl-dev python3-dev \
-          libtinfo6 ccache
-
-    - name: Install buildozer
-      run: |
-        python -m pip install --upgrade pip
-        pip install buildozer cython
-
-    - name: Setup Android SDK
-      uses: amyu/setup-android@v5
-      with:
-        sdk-version: 33
-        build-tools-version: 33.0.2
-        ndk-version: 25.2.9519653
-        command-line-tools-version: 14742923
-
-    - name: Cache Buildozer
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.buildozer
-        key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}-${{ github.run_id }}
-        restore-keys: |
-          ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}-
-          ${{ runner.os }}-buildozer-
-
-    - name: Setup SDK for Buildozer
-      run: |
-        export AMYU_SDK=$HOME/.android/sdk
-        export BUILD_OZER_SDK=$HOME/.buildozer/android/platform/android-sdk
-        
-        mkdir -p $BUILD_OZER_SDK
-        cp -r $AMYU_SDK/* $BUILD_OZER_SDK/
-        
-        mkdir -p $BUILD_OZER_SDK/tools/bin
-        ln -sf $BUILD_OZER_SDK/cmdline-tools/latest/bin/sdkmanager $BUILD_OZER_SDK/tools/bin/sdkmanager
-        ln -sf $BUILD_OZER_SDK/cmdline-tools/latest/bin/avdmanager $BUILD_OZER_SDK/tools/bin/avdmanager
-        
-        mkdir -p ~/.android
-        touch ~/.android/repositories.cfg
-        
-        echo "ANDROID_HOME=$BUILD_OZER_SDK" >> $GITHUB_ENV
-        echo "ANDROID_SDK_ROOT=$BUILD_OZER_SDK" >> $GITHUB_ENV
-
-    - name: Accept Android licenses
-      run: |
-        export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-
-    - name: Create buildozer.spec
-      run: |
-        cat > buildozer.spec << 'EOF'
-        [app]
-        title = Anime Parser Pro
-        package.name = animeparserpro
-        package.domain = org.animeparser
-        source.dir = .
-        source.include_exts = py,png,jpg,kv,atlas,ttf,json,md
-        version = 1.0.0
-        requirements = python3==3.11.12,kivy==2.2.1,kivymd==1.1.1,pillow,requests,beautifulsoup4,html5lib,urllib3,charset-normalizer,idna,certifi
-        orientation = portrait
-        fullscreen = 0
-        android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE,ACCESS_NETWORK_STATE
-        android.api = 33
-        android.minapi = 21
-        android.ndk = 25.2.9519653
-        android.ndk_api = 21
-        android.archs = arm64-v8a
-        android.allow_backup = True
-        android.build_tools = 33.0.2
-        
-        [buildozer]
-        log_level = 2
-        warn_on_root = 1
-        EOF
-        
-        echo "✅ buildozer.spec created"
-        cat buildozer.spec | grep android.ndk
-
-    - name: 🔨 Build APK
-      run: |
-        export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
-        export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/tools/bin:$ANDROID_HOME/platform-tools:$PATH
-        export TERM=dumb
-        export PYTHONUNBUFFERED=1
-        
-        echo "========================================="
-        echo "🔨 STARTING BUILD"
-        echo "========================================="
-        
-        buildozer android debug 2>&1 | tee build.log || {
-          echo "❌ Build failed! Last 200 lines:"
-          tail -n 200 build.log
-          exit 1
-        }
-        
-        echo "========================================="
-        echo "✅ BUILD COMPLETED"
-        echo "========================================="
-        ls -la bin/ || echo "❌ No APK found!"
+        docker run --rm \
+          -v $PWD:/app \
+          -v ~/.buildozer:/home/user/.buildozer \
+          -v ~/.android:/home/user/.android \
+          -w /app \
+          kivy/buildozer:latest \
+          bash -c "
+            export ANDROID_HOME=/home/user/.android/sdk
+            export ANDROID_SDK_ROOT=/home/user/.android/sdk
+            export PATH=\$ANDROID_HOME/cmdline-tools/latest/bin:\$ANDROID_HOME/tools/bin:\$ANDROID_HOME/platform-tools:\$PATH
+            buildozer android debug
+          "
 
     - name: 📤 Upload APK
       if: success()
