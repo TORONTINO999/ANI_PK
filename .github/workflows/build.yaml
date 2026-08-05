@@ -46,45 +46,20 @@ jobs:
         pip install buildozer
 
     # =====================================================
-    # 1️⃣ ПРЕДВАРИТЕЛЬНАЯ ЗАГРУЗКА ВСЕХ ЗАВИСИМОСТЕЙ
+    # 1️⃣ ПРЯМАЯ ЗАГРУЗКА freetype (ОБХОД 502 ОШИБКИ)
     # =====================================================
-    - name: 📦 Pre-download all dependencies with mirrors
+    - name: 📦 Pre-download freetype from mirror
       run: |
-        mkdir -p ~/.buildozer/android/platform/build-arm64-v8a/packages
+        mkdir -p ~/.buildozer/android/platform/build-arm64-v8a/packages/freetype
+        cd ~/.buildozer/android/platform/build-arm64-v8a/packages/freetype
         
-        # Список зависимостей с зеркалами
-        declare -A DEPS=(
-          ["freetype"]="https://download.savannah.gnu.org/releases/freetype/freetype-2.14.1.tar.gz|https://github.com/akheron/jansson/raw/master/CMake/FindFreetype.cmake|https://mirrors.kernel.org/gnu/freetype/freetype-2.14.1.tar.gz"
-          ["openssl"]="https://www.openssl.org/source/openssl-3.0.13.tar.gz|https://github.com/openssl/openssl/archive/refs/tags/openssl-3.0.13.tar.gz"
-          ["jpeg"]="https://www.ijg.org/files/jpegsrc.v9f.tar.gz|https://github.com/winlibs/jpeg/archive/refs/tags/v9f.tar.gz"
-          ["png"]="https://download.sourceforge.net/libpng/libpng-1.6.40.tar.gz|https://github.com/glennrp/libpng/archive/refs/tags/v1.6.40.tar.gz"
-          ["sdl2"]="https://www.libsdl.org/release/SDL2-2.28.5.tar.gz|https://github.com/libsdl-org/SDL/archive/refs/tags/release-2.28.5.tar.gz"
-          ["sdl2_image"]="https://www.libsdl.org/projects/SDL_image/release/SDL2_image-2.6.3.tar.gz|https://github.com/libsdl-org/SDL_image/archive/refs/tags/release-2.6.3.tar.gz"
-          ["sdl2_mixer"]="https://www.libsdl.org/projects/SDL_mixer/release/SDL2_mixer-2.6.3.tar.gz|https://github.com/libsdl-org/SDL_mixer/archive/refs/tags/release-2.6.3.tar.gz"
-          ["sdl2_ttf"]="https://www.libsdl.org/projects/SDL_ttf/release/SDL2_ttf-2.20.2.tar.gz|https://github.com/libsdl-org/SDL_ttf/archive/refs/tags/release-2.20.2.tar.gz"
-        )
+        echo "📥 Downloading freetype from GitHub mirror..."
+        wget -q https://github.com/akheron/jansson/raw/master/CMake/FindFreetype.cmake -O freetype-2.14.1.tar.gz || \
+        wget -q https://download.savannah.gnu.org/releases/freetype/freetype-2.14.1.tar.gz || \
+        echo "⚠️ All mirrors failed, will retry during build"
         
-        for dep in "${!DEPS[@]}"; do
-          echo "📦 Pre-downloading $dep..."
-          IFS='|' read -ra URLS <<< "${DEPS[$dep]}"
-          
-          DOWNLOADED=false
-          for url in "${URLS[@]}"; do
-            filename=$(basename "$url")
-            echo "  Trying: $url"
-            if wget -q --timeout=30 --tries=3 "$url" -O "~/.buildozer/android/platform/build-arm64-v8a/packages/$dep/$filename" 2>/dev/null; then
-              echo "  ✅ Downloaded from $url"
-              DOWNLOADED=true
-              break
-            else
-              echo "  ⚠️ Failed from $url, trying next mirror..."
-            fi
-          done
-          
-          if [ "$DOWNLOADED" = false ]; then
-            echo "  ⚠️ All mirrors failed for $dep, will retry during build"
-          fi
-        done
+        echo "📂 Files in freetype directory:"
+        ls -la
 
     # =====================================================
     # 2️⃣ НАСТРОЙКА SDK
@@ -186,7 +161,7 @@ jobs:
         echo "========================================="
 
     # =====================================================
-    # 6️⃣ СБОРКА APK С ПОВТОРНЫМИ ПОПЫТКАМИ
+    # 6️⃣ СБОРКА APK
     # =====================================================
     - name: 🔨 Build APK
       run: |
@@ -216,40 +191,8 @@ jobs:
           exit 1
         fi
         
-        # Функция для сборки с повторными попытками
-        build_with_retry() {
-          local attempt=1
-          local max_attempts=5
-          
-          while [ $attempt -le $max_attempts ]; do
-            echo "🚀 Build attempt $attempt of $max_attempts..."
-            
-            # Пробуем собрать
-            if buildozer android debug; then
-              echo "✅ Build succeeded on attempt $attempt!"
-              return 0
-            fi
-            
-            echo "⚠️ Build attempt $attempt failed."
-            
-            # Проверяем, не ошибка ли это с сетью
-            if grep -q "HTTP Error 502\|Bad Gateway\|connection timed out" build.log 2>/dev/null; then
-              echo "🌐 Network error detected, waiting 30 seconds before retry..."
-              sleep 30
-            else
-              echo "🔧 Non-network error, trying clean build..."
-              buildozer android clean
-            fi
-            
-            attempt=$((attempt + 1))
-          done
-          
-          echo "❌ All $max_attempts build attempts failed!"
-          return 1
-        }
-        
-        # Запускаем сборку с повторными попытками
-        build_with_retry
+        echo "🚀 Running buildozer..."
+        buildozer android debug
         
         echo "========================================="
         echo "✅ BUILD COMPLETED"
