@@ -58,16 +58,15 @@ jobs:
         mkdir -p "$BASE_DIR"
         cd "$BASE_DIR"
         
-        # ✅ ФИКС: версия Python 3.11.12 для hostpython3
         PYTHON_VERSION="3.11.12"
         
-        # hostpython3 — ВЕРСИЯ 3.11.12
+        # hostpython3
         mkdir -p hostpython3 && cd hostpython3
         wget -q --timeout=60 https://github.com/python/cpython/archive/refs/tags/v${PYTHON_VERSION}.tar.gz -O v${PYTHON_VERSION}.tar.gz
         tar -xzf v${PYTHON_VERSION}.tar.gz
         cd ..
         
-        # python3 — та же версия 3.11.12
+        # python3
         mkdir -p python3 && cd python3
         cp ../hostpython3/v${PYTHON_VERSION}.tar.gz .
         tar -xzf v${PYTHON_VERSION}.tar.gz
@@ -152,8 +151,6 @@ jobs:
         cd ..
         
         echo "✅ All archives pre-downloaded with Python ${PYTHON_VERSION}"
-        echo "✅ hostpython3 and python3 both version ${PYTHON_VERSION}"
-        ls -la "$BASE_DIR"
 
     # =====================================================
     # 2️⃣ НАСТРОЙКА SDK (ИСПОЛЬЗУЕТ КЭШ)
@@ -202,6 +199,27 @@ jobs:
         
         echo "ANDROID_HOME=$BUILD_OZER_SDK" >> $GITHUB_ENV
         echo "ANDROID_SDK_ROOT=$BUILD_OZER_SDK" >> $GITHUB_ENV
+
+    # =====================================================
+    # 3️⃣ 🔗 СВЯЗЫВАЕМ NDK ДЛЯ BUILDОZER (КРИТИЧЕСКИ ВАЖНО!)
+    # =====================================================
+    - name: 🔗 Link NDK for Buildozer
+      run: |
+        export BUILD_OZER_SDK=$HOME/.buildozer/android/platform/android-sdk
+        export NDK_VERSION="25.2.9519653"
+        
+        # Создаем структуру для NDK
+        mkdir -p $BUILD_OZER_SDK/ndk
+        
+        # Копируем NDK (копирование лучше симлинка для Buildozer)
+        echo "📦 Copying NDK to Buildozer location..."
+        cp -r $ANDROID_HOME/ndk/$NDK_VERSION $BUILD_OZER_SDK/ndk/
+        
+        # Также создаем ndk-bundle (Buildozer иногда ищет здесь)
+        ln -sf $BUILD_OZER_SDK/ndk/$NDK_VERSION $BUILD_OZER_SDK/ndk-bundle
+        
+        echo "✅ NDK linked: $NDK_VERSION"
+        ls -la $BUILD_OZER_SDK/ndk/
 
     - name: Accept Android licenses
       run: |
