@@ -46,19 +46,18 @@ jobs:
         pip install buildozer
 
     # =====================================================
-    # 1️⃣ ПРЕДВАРИТЕЛЬНАЯ ЗАГРУЗКА freetype
+    # 1️⃣ ПРЕДВАРИТЕЛЬНАЯ ЗАГРУЗКА И РАСПАКОВКА freetype
     # =====================================================
-    - name: 📦 Manual download freetype from official source
+    - name: 📦 Download and extract freetype
       run: |
         mkdir -p ~/.buildozer/android/platform/build-arm64-v8a/packages/freetype
         cd ~/.buildozer/android/platform/build-arm64-v8a/packages/freetype
         
-        echo "📥 Downloading freetype from official GitHub mirror..."
-        wget -q https://github.com/freetype/freetype/archive/refs/tags/VER-2-14-1.tar.gz -O freetype-2.14.1.tar.gz || \
-        wget -q https://download.savannah.nongnu.org/releases/freetype/freetype-2.14.1.tar.gz || \
-        wget -q https://ftp.fau.de/gnu/gnu/freetype/freetype-2.14.1.tar.gz || \
-        wget -q https://ftp.gnu.org/gnu/freetype/freetype-2.14.1.tar.gz || \
-        echo "⚠️ All mirrors failed, will retry during build"
+        echo "📥 Downloading freetype from GitHub..."
+        wget -q https://github.com/freetype/freetype/archive/refs/tags/VER-2-14-1.tar.gz -O freetype-2.14.1.tar.gz
+        
+        echo "📦 Extracting freetype..."
+        tar -xzf freetype-2.14.1.tar.gz
         
         echo "📂 Files in freetype directory:"
         ls -la
@@ -215,5 +214,5 @@ jobs:
           echo "✅ Build succeeded! APK uploaded to artifacts."
         else
           echo "❌ Build failed!"
-          echo "🔧 Try running again: https://github.com/${{ github.repository }}/actions/workflows/build.yaml"
+          echo "🔗 Logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         fi
