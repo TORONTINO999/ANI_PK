@@ -201,25 +201,37 @@ jobs:
         echo "ANDROID_SDK_ROOT=$BUILD_OZER_SDK" >> $GITHUB_ENV
 
     # =====================================================
-    # 3️⃣ 🔗 СВЯЗЫВАЕМ NDK ДЛЯ BUILDОZER (КРИТИЧЕСКИ ВАЖНО!)
+    # 3️⃣ 🔗 ПРОВЕРКА И НАСТРОЙКА NDK (ИСПРАВЛЕНО)
     # =====================================================
-    - name: 🔗 Link NDK for Buildozer
+    - name: 🔗 Verify and Link NDK for Buildozer
       run: |
         export BUILD_OZER_SDK=$HOME/.buildozer/android/platform/android-sdk
         export NDK_VERSION="25.2.9519653"
         
-        # Создаем структуру для NDK
-        mkdir -p $BUILD_OZER_SDK/ndk
+        echo "📂 Checking NDK location..."
         
-        # Копируем NDK (копирование лучше симлинка для Buildozer)
-        echo "📦 Copying NDK to Buildozer location..."
-        cp -r $ANDROID_HOME/ndk/$NDK_VERSION $BUILD_OZER_SDK/ndk/
+        # Проверяем, существует ли NDK уже в папке Buildozer
+        if [[ -d "$BUILD_OZER_SDK/ndk/$NDK_VERSION" ]]; then
+          echo "✅ NDK already exists at $BUILD_OZER_SDK/ndk/$NDK_VERSION"
+        else
+          echo "📦 NDK not found, copying from $ANDROID_HOME/ndk/$NDK_VERSION..."
+          mkdir -p $BUILD_OZER_SDK/ndk
+          cp -r $ANDROID_HOME/ndk/$NDK_VERSION $BUILD_OZER_SDK/ndk/
+        fi
         
-        # Также создаем ndk-bundle (Buildozer иногда ищет здесь)
-        ln -sf $BUILD_OZER_SDK/ndk/$NDK_VERSION $BUILD_OZER_SDK/ndk-bundle
+        # Создаем ndk-bundle если его нет
+        if [[ ! -L "$BUILD_OZER_SDK/ndk-bundle" ]] && [[ ! -d "$BUILD_OZER_SDK/ndk-bundle" ]]; then
+          echo "🔗 Creating ndk-bundle symlink..."
+          ln -sf $BUILD_OZER_SDK/ndk/$NDK_VERSION $BUILD_OZER_SDK/ndk-bundle
+        else
+          echo "✅ ndk-bundle already exists"
+        fi
         
-        echo "✅ NDK linked: $NDK_VERSION"
-        ls -la $BUILD_OZER_SDK/ndk/
+        echo "✅ NDK ready: $NDK_VERSION"
+        echo "📁 Contents of $BUILD_OZER_SDK/ndk/:"
+        ls -la $BUILD_OZER_SDK/ndk/ || echo "❌ NDK directory not found!"
+        echo "📁 ndk-bundle symlink:"
+        ls -la $BUILD_OZER_SDK/ndk-bundle || echo "❌ ndk-bundle not found!"
 
     - name: Accept Android licenses
       run: |
@@ -232,6 +244,16 @@ jobs:
         export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/tools/bin:$ANDROID_HOME/platform-tools:$PATH
         export TERM=dumb
         export PYTHONUNBUFFERED=1
+        
+        # Добавляем явную проверку NDK
+        echo "🔍 Verifying NDK installation..."
+        if [[ -d "$ANDROID_HOME/ndk/25.2.9519653" ]]; then
+          echo "✅ NDK found at $ANDROID_HOME/ndk/25.2.9519653"
+        else
+          echo "❌ NDK not found!"
+          ls -la $ANDROID_HOME/ndk/ || echo "No ndk directory"
+          exit 1
+        fi
         
         echo "========================================="
         echo "🔨 STARTING BUILD"
