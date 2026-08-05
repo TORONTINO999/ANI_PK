@@ -37,8 +37,8 @@ jobs:
           git zip unzip autoconf libtool pkg-config \
           zlib1g-dev libncurses5-dev libncursesw5-dev \
           cmake libffi-dev libssl-dev \
-          automake libltdl-dev python3-dev
-        sudo apt-get install -y -qq libtinfo6 || true
+          automake libltdl-dev python3-dev \
+          libtinfo6
 
     - name: Install Python packages
       run: |
@@ -48,22 +48,22 @@ jobs:
     - name: Clean old Android SDK
       run: rm -rf ~/.buildozer/android/platform/android-sdk || true
 
-    - name: Setup Android SDK (OLD VERSION - no license issues)
+    - name: Setup Android SDK (FIXED)
       run: |
         export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
         mkdir -p $ANDROID_HOME
         cd $ANDROID_HOME
         
-        # СКАЧИВАЕМ СТАРУЮ ВЕРСИЮ SDK TOOLS (НЕ ТРЕБУЕТ ЛИЦЕНЗИЙ)
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-        unzip -q commandlinetools-linux-9477386_latest.zip
-        rm commandlinetools-linux-9477386_latest.zip
+        # Правильная версия SDK Tools (старая, без лицензий)
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-6609375_latest.zip
+        unzip -q commandlinetools-linux-6609375_latest.zip
+        rm commandlinetools-linux-6609375_latest.zip
         
-        # Структура для старой версии (другая!)
+        # Правильная структура для старой версии
         mkdir -p tools
-        mv cmdline-tools/* tools/ 2>/dev/null || true
+        cp -r cmdline-tools/* tools/ 2>/dev/null || true
         
-        # Принимаем лицензии (старая версия не требует ввода)
+        # Принимаем лицензии (старая версия)
         yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses || true
         
         # Устанавливаем компоненты
@@ -71,7 +71,7 @@ jobs:
         $ANDROID_HOME/tools/bin/sdkmanager "platforms;android-33" || true
         $ANDROID_HOME/tools/bin/sdkmanager "build-tools;33.0.2" || true
         
-        echo "SDK setup completed with old version"
+        echo "SDK setup completed"
 
     - name: Cache Buildozer
       uses: actions/cache@v4
@@ -90,6 +90,6 @@ jobs:
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: anime-parser-universal-apk
+        name: anime-parser-apk
         path: bin/*.apk
         retention-days: 30
